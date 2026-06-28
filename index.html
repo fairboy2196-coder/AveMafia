@@ -1,0 +1,1344 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>АвеМафия — клуб мафиозных игр</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Forum&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,900;1,500;1,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   AveMafia — design tokens
+   ============================================================ */
+:root{
+  --void:#080611;        --void-2:#0a0818;
+  --panel:#0d0a1c;       --panel-2:#0f0b22;
+  --card:#15102b;        --card-2:#1c1640;   --card-3:#231a4d;
+  --line:rgba(150,120,225,.16);
+  --line-2:rgba(155,124,255,.34);
+  --line-gold:rgba(230,192,116,.42);
+  --violet:#9b6bff;      --violet-2:#7a47e6;  --violet-deep:#5a2fb8;
+  --blue:#5e8cff;        --blue-2:#4f7bf0;
+  --gold:#e7c277;        --gold-2:#c79a45;
+  --ghost:#f1ecff;       --mist:#a99ccb;      --mist-2:#766b9c;
+  --mafia:#e25068;       --good:#46d6a2;      --third:#c77dff;
+  --glow-v:rgba(139,92,246,.55);
+  --glow-b:rgba(94,140,255,.5);
+  --r:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Manrope",system-ui,sans-serif;
+  color:var(--ghost);
+  background:var(--void);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  position:relative;
+  overflow-x:hidden;
+}
+/* atmospheric backdrop */
+.bg-decor{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(70% 50% at 50% -6%, rgba(122,71,230,.34), transparent 60%),
+    radial-gradient(50% 40% at 12% 24%, rgba(94,140,255,.14), transparent 60%),
+    radial-gradient(55% 45% at 92% 70%, rgba(139,92,246,.16), transparent 60%),
+    radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.6) 100%),
+    linear-gradient(180deg,#0a0716,#070512 60%,#05030d);
+}
+.bg-decor::after{content:"";position:absolute;inset:0;opacity:.4;
+  background-image:radial-gradient(1px 1px at 18% 22%,rgba(255,255,255,.5),transparent),
+    radial-gradient(1px 1px at 78% 12%,rgba(255,255,255,.4),transparent),
+    radial-gradient(1px 1px at 64% 38%,rgba(199,180,255,.5),transparent),
+    radial-gradient(1px 1px at 32% 64%,rgba(255,255,255,.35),transparent),
+    radial-gradient(1.4px 1.4px at 88% 52%,rgba(231,194,123,.5),transparent),
+    radial-gradient(1px 1px at 8% 76%,rgba(255,255,255,.3),transparent);
+}
+
+/* ============================================================ brand header */
+.brand{position:relative;z-index:2;text-align:center;padding:54px 20px 26px}
+.brand .crest{margin:0 auto 6px;width:42px;height:42px;color:var(--blue);
+  filter:drop-shadow(0 0 14px var(--glow-b))}
+.wordmark{font-family:"Playfair Display",serif;font-weight:900;letter-spacing:.5px;
+  font-size:clamp(40px,9vw,68px);line-height:.9;margin:0;
+  background:linear-gradient(180deg,#fbf7ff 0%,#d9ccff 42%,#9d83e6 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 42px rgba(139,92,246,.35)}
+.wordmark .b{background:linear-gradient(180deg,#fff6e3,#e7c277 60%,#b98a37);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.brand .tag{margin:14px 0 0;font-family:"Forum",serif;color:var(--mist);
+  letter-spacing:.42em;text-transform:uppercase;font-size:12.5px;
+  display:flex;align-items:center;justify-content:center;gap:14px}
+.brand .tag i{width:7px;height:7px;color:var(--violet);display:inline-flex}
+.brand .tag i svg{width:100%;height:100%}
+
+/* ============================================================ phone */
+.stage{position:relative;z-index:2;display:flex;justify-content:center;padding:8px 16px 30px}
+.phone{width:392px;max-width:100%}
+.device{position:relative;height:min(840px,86vh);border-radius:46px;
+  background:linear-gradient(160deg,#241a44,#0c0920 60%);
+  padding:11px;
+  box-shadow:0 0 0 1px rgba(155,124,255,.18),
+    0 0 60px rgba(122,71,230,.28),
+    0 40px 90px -30px rgba(0,0,0,.9),
+    inset 0 0 0 2px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;overflow:hidden}
+.device::before{content:"";position:absolute;inset:11px;border-radius:38px;
+  pointer-events:none;z-index:40;box-shadow:inset 0 0 0 1px rgba(155,124,255,.1)}
+.screen-frame{flex:1;display:flex;flex-direction:column;border-radius:36px;overflow:hidden;
+  background:linear-gradient(180deg,var(--panel),var(--void-2));position:relative}
+
+/* status bar */
+.statusbar{height:42px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 26px;font-size:14px;font-weight:700;color:var(--ghost);
+  position:relative;z-index:30;flex:0 0 auto}
+.statusbar .sig{display:flex;align-items:center;gap:6px}
+.statusbar svg{display:block}
+
+/* viewport / screens */
+.viewport{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;position:relative}
+.viewport::-webkit-scrollbar{display:none}
+.screen{display:none;padding:0 16px 30px}
+.screen.is-active{display:block;animation:fadeUp .42s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* topbar inside screen */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;
+  justify-content:space-between;gap:10px;padding:8px 0 14px;
+  background:linear-gradient(180deg,var(--panel) 64%,rgba(13,10,28,0));}
+.topbar h1{margin:0;font-family:"Playfair Display",serif;font-weight:700;font-size:21px;
+  letter-spacing:.3px}
+.tb-word{font-family:"Playfair Display",serif;font-weight:900;font-size:23px;
+  display:flex;align-items:center;gap:7px}
+.tb-word .b{background:linear-gradient(180deg,#fff6e3,#e7c277);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+.icon-btn{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);
+  background:rgba(255,255,255,.02);display:grid;place-items:center;color:var(--mist);
+  cursor:pointer;transition:.2s;flex:0 0 auto}
+.icon-btn:hover{color:var(--ghost);border-color:var(--line-2);background:rgba(155,124,255,.08)}
+.icon-btn svg{width:20px;height:20px}
+.svgico{width:20px;height:20px;display:inline-block}
+
+/* eyebrow */
+.eyebrow{font-family:"Forum",serif;text-transform:uppercase;letter-spacing:.26em;
+  font-size:12px;color:var(--mist);display:flex;align-items:center;gap:9px;margin:18px 2px 12px}
+.eyebrow.with-link{justify-content:space-between}
+.eyebrow .lk{font-family:"Manrope";letter-spacing:.04em;font-size:12.5px;color:var(--violet);
+  text-transform:none;cursor:pointer;font-weight:600}
+.eyebrow .di{width:7px;height:7px;color:var(--violet)}
+.eyebrow .di svg{width:100%;height:100%}
+
+/* ============================================================ framed card (signature) */
+.frame{position:relative;border-radius:var(--r);
+  background:linear-gradient(165deg,var(--card-2),var(--card) 70%);
+  border:1px solid var(--line);
+  box-shadow:0 14px 36px -22px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.04)}
+.frame::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+  background:linear-gradient(150deg,rgba(155,124,255,.5),transparent 35%,transparent 65%,rgba(94,140,255,.32));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.8}
+.frame .corner{position:absolute;width:8px;height:8px;color:var(--gold);opacity:.7;z-index:2}
+.frame .corner svg{width:100%;height:100%}
+.frame .corner.tl{top:8px;left:8px}.frame .corner.tr{top:8px;right:8px}
+.frame .corner.bl{bottom:8px;left:8px}.frame .corner.br{bottom:8px;right:8px}
+
+/* ============================================================ nearest game card */
+.hero-art{position:relative;height:172px;border-radius:14px 14px 0 0;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 0%,rgba(122,71,230,.45),transparent 60%),
+    linear-gradient(180deg,#1a1340,#0d0a22)}
+.hero-art .motif{position:absolute;inset:0;width:100%;height:100%}
+.hero-art .gloss{position:absolute;inset:0;
+  background:radial-gradient(80% 60% at 50% 18%,rgba(199,180,255,.25),transparent 60%);
+  mix-blend-mode:screen}
+.hero-art::after{content:"";position:absolute;left:0;right:0;bottom:0;height:54px;
+  background:linear-gradient(180deg,transparent,var(--card) 92%)}
+.ng-body{padding:14px 18px 18px}
+.ng-title{font-family:"Playfair Display",serif;font-weight:700;font-size:27px;margin:0 0 12px}
+.row-ico{display:flex;align-items:flex-start;gap:11px;color:var(--mist);font-size:14.5px;
+  font-weight:500;margin:9px 0}
+.row-ico .svgico{width:17px;height:17px;color:var(--violet);margin-top:1px;flex:0 0 auto}
+.row-ico b{color:var(--ghost);font-weight:600}
+.row-ico .sub{color:var(--mist-2);font-size:13px}
+.price-tag .svgico{color:var(--gold)}
+.price-tag b{color:var(--gold);font-size:16px}
+
+/* primary button */
+.btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;
+  border:none;cursor:pointer;font-family:"Manrope";font-weight:700;font-size:16px;
+  border-radius:13px;padding:15px;letter-spacing:.02em;transition:.22s;position:relative;overflow:hidden}
+.btn-primary{color:#fff;
+  background:linear-gradient(180deg,#a877ff,#7a47e6 55%,#5a2fb8);
+  box-shadow:0 10px 28px -8px var(--glow-v),inset 0 1px 0 rgba(255,255,255,.28),
+    0 0 0 1px rgba(180,150,255,.4)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 16px 34px -8px var(--glow-v),inset 0 1px 0 rgba(255,255,255,.3),0 0 0 1px rgba(190,160,255,.5)}
+.btn-primary::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);
+  transform:skewX(-18deg);animation:sheen 5.5s ease-in-out infinite}
+@keyframes sheen{0%,72%{left:-60%}86%{left:130%}100%{left:130%}}
+.btn-ghost{color:var(--ghost);background:rgba(155,124,255,.07);
+  border:1px solid var(--line-2);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.btn-ghost:hover{background:rgba(155,124,255,.14)}
+.btn-gold{color:#1a1206;background:linear-gradient(180deg,#f3da9d,#e7c277 55%,#c79a45);
+  box-shadow:0 10px 26px -10px rgba(231,194,123,.6),inset 0 1px 0 rgba(255,255,255,.5)}
+.mt{margin-top:11px}
+
+/* quick grid */
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:6px}
+.qbtn{position:relative;border-radius:15px;padding:18px 16px;cursor:pointer;
+  background:linear-gradient(160deg,var(--card-2),var(--card));border:1px solid var(--line);
+  display:flex;align-items:center;gap:13px;transition:.2s;overflow:hidden}
+.qbtn:hover{border-color:var(--line-2);transform:translateY(-2px);
+  box-shadow:0 14px 30px -18px rgba(122,71,230,.7)}
+.qbtn .qi{width:40px;height:40px;flex:0 0 auto;color:var(--violet);
+  filter:drop-shadow(0 0 8px rgba(139,92,246,.5))}
+.qbtn .qi svg{width:100%;height:100%}
+.qbtn span{font-family:"Playfair Display",serif;font-size:16px;font-weight:600;line-height:1.15}
+
+/* announcement card */
+.ann{display:flex;gap:13px;padding:11px;align-items:center;margin-bottom:11px}
+.ann .thumb{width:74px;height:74px;border-radius:12px;flex:0 0 auto;overflow:hidden;position:relative;
+  background:radial-gradient(120% 100% at 50% 0%,rgba(122,71,230,.4),transparent),linear-gradient(180deg,#191238,#0d0a22)}
+.ann .thumb svg{position:absolute;inset:0;width:100%;height:100%}
+.ann .meta h3{font-family:"Playfair Display",serif;font-weight:700;font-size:17px;margin:0 0 4px}
+.ann .meta p{margin:0;color:var(--mist);font-size:13px;line-height:1.4}
+.ann .meta .date{color:var(--violet);font-size:12.5px;font-weight:600;margin-top:6px;display:block}
+
+/* ============================================================ segmented + games */
+.seg{display:flex;gap:5px;background:rgba(255,255,255,.03);border:1px solid var(--line);
+  border-radius:13px;padding:5px;margin-bottom:14px}
+.seg button{flex:1;border:none;background:none;cursor:pointer;color:var(--mist);
+  font-family:"Manrope";font-weight:600;font-size:14px;padding:10px;border-radius:9px;transition:.2s}
+.seg button.on{color:#fff;background:linear-gradient(180deg,#7a47e6,#5a2fb8);
+  box-shadow:0 6px 16px -8px var(--glow-v)}
+
+.gcard{display:flex;gap:14px;padding:13px;margin-bottom:12px;cursor:pointer;transition:.2s}
+.gcard:hover{transform:translateY(-2px);box-shadow:0 18px 36px -22px rgba(122,71,230,.8)}
+.gcard .gthumb{width:90px;height:118px;border-radius:13px;flex:0 0 auto;overflow:hidden;position:relative;
+  background:radial-gradient(120% 90% at 50% 6%,rgba(122,71,230,.4),transparent 62%),linear-gradient(180deg,#1a1340,#0c0921)}
+.gcard .gthumb svg{position:absolute;inset:0;width:100%;height:100%}
+.gcard .gthumb .glo{position:absolute;inset:0;background:radial-gradient(70% 55% at 50% 22%,rgba(199,180,255,.22),transparent 60%);mix-blend-mode:screen}
+.gcard .ginfo{flex:1;min-width:0;display:flex;flex-direction:column}
+.gcard .ghead{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.gcard .ginfo h3{font-family:"Playfair Display",serif;font-weight:700;font-size:18px;margin:0 0 9px;line-height:1.1}
+.gcard .gr{display:flex;align-items:center;gap:8px;color:var(--mist);font-size:13px;margin:3px 0}
+.gcard .gr .svgico{width:15px;height:15px;color:var(--violet);flex:0 0 auto}
+.gcard .gr b{color:var(--ghost);font-weight:600}
+.gcard .gseats{margin-top:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mist)}
+.gcard .gseats .svgico{width:15px;height:15px;color:var(--blue)}
+.gprice{color:var(--gold);font-weight:700;font-size:15px;margin:6px 0 2px}
+
+.badge{font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;white-space:nowrap;
+  letter-spacing:.02em;flex:0 0 auto}
+.badge.open{color:#7df0c0;background:rgba(70,214,162,.13);border:1px solid rgba(70,214,162,.4)}
+.badge.soon{color:#b89aff;background:rgba(155,124,255,.13);border:1px solid rgba(155,124,255,.42)}
+.badge.full{color:#f08a9a;background:rgba(226,80,104,.13);border:1px solid rgba(226,80,104,.4)}
+.badge.done{color:var(--mist-2);background:rgba(255,255,255,.04);border:1px solid var(--line)}
+
+/* ============================================================ game detail */
+.gd-hero{height:230px;border-radius:var(--r);overflow:hidden;position:relative;
+  background:radial-gradient(120% 90% at 50% 0%,rgba(122,71,230,.5),transparent 60%),linear-gradient(180deg,#1c1545,#0c0921)}
+.gd-hero svg.motif{position:absolute;inset:0;width:100%;height:100%}
+.gd-hero .lvlbadge{position:absolute;top:14px;left:14px;z-index:3}
+.gd-hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:90px;
+  background:linear-gradient(180deg,transparent,var(--void-2) 94%)}
+.gd-hero .gd-title{position:absolute;left:18px;right:18px;bottom:16px;z-index:3;margin:0;
+  font-family:"Playfair Display",serif;font-weight:700;font-size:30px;
+  text-shadow:0 4px 18px rgba(0,0,0,.7)}
+.lvlbadge{font-size:11.5px;font-weight:700;color:#e9dcff;background:rgba(40,28,80,.7);
+  border:1px solid var(--line-2);border-radius:999px;padding:6px 12px;backdrop-filter:blur(4px)}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:14px}
+.icell{padding:13px 14px}
+.icell .lab{font-size:11.5px;color:var(--mist-2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;
+  display:flex;align-items:center;gap:6px}
+.icell .lab .svgico{width:14px;height:14px;color:var(--violet)}
+.icell .val{font-weight:700;font-size:15px}
+.icell .val.gold{color:var(--gold)}
+.section-p{color:var(--mist);font-size:14.5px;line-height:1.6;margin:8px 2px 0}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{font-size:12.5px;color:var(--mist);background:rgba(155,124,255,.08);border:1px solid var(--line);
+  border-radius:999px;padding:7px 13px;font-weight:600}
+.chip b{color:var(--ghost)}
+.cancel-note{margin-top:14px;padding:12px 14px;border-radius:12px;background:rgba(94,140,255,.06);
+  border:1px solid rgba(94,140,255,.2);color:var(--mist);font-size:13px;line-height:1.5;display:flex;gap:10px}
+.cancel-note .svgico{color:var(--blue);width:18px;height:18px;flex:0 0 auto;margin-top:1px}
+
+/* booking state machine */
+.status-line{display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:12px;
+  font-weight:600;font-size:14px;margin-top:14px}
+.status-line .svgico{width:18px;height:18px;flex:0 0 auto}
+.status-line.wait{color:#f0d49a;background:rgba(231,194,123,.08);border:1px solid var(--line-gold)}
+.status-line.paid{color:#7df0c0;background:rgba(70,214,162,.1);border:1px solid rgba(70,214,162,.4)}
+.hide{display:none !important}
+
+/* ticket */
+.ticket{position:relative;margin-top:14px;border-radius:18px;overflow:hidden;
+  background:linear-gradient(160deg,#211749,#120d2c);border:1px solid var(--line-gold);
+  box-shadow:0 18px 40px -22px rgba(231,194,123,.35)}
+.ticket .tk-top{padding:18px 18px 16px;position:relative}
+.ticket .tk-glow{position:absolute;inset:0;background:radial-gradient(80% 60% at 80% 0%,rgba(231,194,123,.18),transparent 60%)}
+.ticket .tk-elabel{font-family:"Forum",serif;letter-spacing:.24em;text-transform:uppercase;
+  font-size:11px;color:var(--gold);position:relative}
+.ticket h3{font-family:"Playfair Display",serif;font-weight:700;font-size:22px;margin:6px 0 2px;position:relative}
+.ticket .tk-sub{color:var(--mist);font-size:13.5px;position:relative}
+.ticket .tk-perf{display:flex;align-items:center;position:relative;border-top:1px dashed var(--line-2);padding:16px 18px;gap:16px}
+.ticket .tk-perf::before,.ticket .tk-perf::after{content:"";position:absolute;top:-11px;width:22px;height:22px;
+  border-radius:50%;background:var(--void-2)}
+.ticket .tk-perf::before{left:-11px}.ticket .tk-perf::after{right:-11px}
+.qr{width:88px;height:88px;flex:0 0 auto;border-radius:10px;background:#0a0817;padding:8px;border:1px solid var(--line-2)}
+.qr svg{width:100%;height:100%}
+.tk-fields{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tk-fields .f .l{font-size:10.5px;color:var(--mist-2);text-transform:uppercase;letter-spacing:.06em}
+.tk-fields .f .v{font-weight:700;font-size:13.5px;margin-top:2px}
+.tk-fields .f .v.ok{color:var(--good)}
+
+/* ============================================================ roles */
+.intro{color:var(--mist);font-size:14px;line-height:1.55;margin:2px 2px 6px}
+.cat-head{display:flex;align-items:center;gap:10px;margin:20px 2px 12px;font-family:"Playfair Display",serif;
+  font-weight:700;font-size:18px}
+.cat-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 10px currentColor}
+.cat-head .ct-count{margin-left:auto;font-family:"Manrope";font-size:12px;color:var(--mist-2);font-weight:600}
+.rcard{display:flex;gap:13px;align-items:center;padding:13px;margin-bottom:10px;cursor:pointer;transition:.2s}
+.rcard:hover{transform:translateY(-2px);box-shadow:0 16px 32px -22px rgba(122,71,230,.8)}
+.rmask{width:54px;height:54px;flex:0 0 auto;border-radius:13px;display:grid;place-items:center;position:relative;
+  background:radial-gradient(120% 100% at 50% 10%,rgba(122,71,230,.25),transparent),linear-gradient(160deg,#1b1440,#0e0a24);
+  border:1px solid var(--line)}
+.rmask svg{width:32px;height:32px}
+.rcard .rbody{flex:1;min-width:0}
+.rcard .rbody h3{font-family:"Playfair Display",serif;font-weight:700;font-size:16px;margin:0 0 3px}
+.rcard .rbody p{margin:0;color:var(--mist);font-size:12.5px;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.diff{display:flex;align-items:center;gap:4px;margin-top:7px}
+.diff .d{width:7px;height:7px;color:var(--mist-2)}
+.diff .d.on{color:var(--gold)}
+.diff .d svg{width:100%;height:100%}
+.diff .dl{font-size:11px;color:var(--mist-2);margin-left:5px}
+.rcard .rchev{color:var(--mist-2);width:18px;height:18px;flex:0 0 auto}
+
+/* role detail */
+.rd-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:14px 0 4px}
+.rd-mask{width:108px;height:108px;border-radius:26px;display:grid;place-items:center;position:relative;
+  background:radial-gradient(120% 100% at 50% 6%,rgba(122,71,230,.3),transparent),linear-gradient(160deg,#1d1647,#0e0a24);
+  border:1px solid var(--line-2);box-shadow:0 0 40px -10px var(--glow-v)}
+.rd-mask svg{width:64px;height:64px}
+.rd-cat{margin-top:14px;font-size:12px;font-weight:700;letter-spacing:.04em;padding:6px 14px;border-radius:999px}
+.rd-name{font-family:"Playfair Display",serif;font-weight:700;font-size:30px;margin:12px 0 0}
+.rd-block{margin-top:16px;padding:15px 16px}
+.rd-block .bt{font-family:"Forum",serif;text-transform:uppercase;letter-spacing:.18em;font-size:11.5px;
+  color:var(--mist);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.rd-block .bt .svgico{width:15px;height:15px;color:var(--violet)}
+.rd-block p{margin:0;color:#d8d0ef;font-size:14.5px;line-height:1.6}
+.tip{display:flex;gap:10px;align-items:flex-start;color:#d8d0ef;font-size:14px;line-height:1.5;margin:9px 0}
+.tip .svgico{width:16px;height:16px;color:var(--gold);flex:0 0 auto;margin-top:2px}
+
+/* ============================================================ profile */
+.pf-avatar{position:relative;width:180px;height:180px;margin:8px auto 0}
+.pf-ring{position:absolute;inset:0}
+.pf-ring svg{width:100%;height:100%}
+.pf-portrait{position:absolute;inset:26px;border-radius:50%;overflow:hidden;
+  background:radial-gradient(120% 100% at 50% 8%,rgba(122,71,230,.5),transparent 60%),linear-gradient(180deg,#1a1340,#0c0921);
+  border:1px solid var(--line-2)}
+.pf-portrait svg{position:absolute;inset:0;width:100%;height:100%}
+.pf-lvl{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);z-index:4;
+  width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(160deg,#2a1d5e,#160f33);border:1.5px solid var(--gold);
+  box-shadow:0 0 18px -2px rgba(231,194,123,.6);font-family:"Playfair Display";font-weight:700;
+  font-size:18px;color:var(--gold)}
+.pf-name{text-align:center;font-family:"Playfair Display",serif;font-weight:700;font-size:26px;margin:18px 0 4px}
+.pf-status{text-align:center;color:var(--mist);font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:8px}
+.pf-status .ln{width:24px;height:1px;background:linear-gradient(90deg,transparent,var(--gold))}
+.pf-status .ln.r{background:linear-gradient(90deg,var(--gold),transparent)}
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:18px}
+.stat{padding:15px;text-align:center}
+.stat.tap{cursor:pointer;transition:.2s}.stat.tap:hover{border-color:var(--line-2);transform:translateY(-2px)}
+.stat .sl{font-size:12px;color:var(--mist);margin-bottom:7px}
+.stat .sv{font-family:"Playfair Display",serif;font-weight:700;font-size:30px;
+  display:flex;align-items:center;justify-content:center;gap:7px}
+.stat .sv .gem{width:16px;height:16px;color:var(--violet)}
+.stat .sv.gold{color:#fff}
+.winwrap{margin-top:11px;padding:16px}
+.winwrap .wh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.winwrap .wh .wl{font-size:13px;color:var(--mist)}
+.winwrap .wh .wp{font-family:"Playfair Display";font-weight:700;font-size:28px}
+.bar{height:9px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;
+  background:linear-gradient(90deg,#7a47e6,#a877ff 60%,#5e8cff);box-shadow:0 0 12px var(--glow-v)}
+.winwrap .wf{display:flex;justify-content:space-between;margin-top:11px;font-size:13px;color:var(--mist)}
+.winwrap .wf b{color:var(--ghost)}
+.fav{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px}
+.favc{text-align:center;cursor:pointer}
+.favi{width:100%;aspect-ratio:1;border-radius:18px;display:grid;place-items:center;position:relative;transition:.2s;
+  background:radial-gradient(120% 100% at 50% 8%,rgba(122,71,230,.22),transparent),linear-gradient(160deg,#1a1340,#0e0a24);
+  border:1px solid var(--line)}
+.favc:hover .favi{transform:translateY(-3px);border-color:var(--line-2)}
+.favi svg{width:42px;height:42px}
+.favc span{display:block;margin-top:8px;font-size:13px;font-weight:600;color:var(--mist)}
+.ach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 12px;margin-top:6px}
+.achc{text-align:center}
+.achi{width:100%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;position:relative;
+  background:radial-gradient(120% 100% at 50% 12%,rgba(255,255,255,.05),transparent),linear-gradient(160deg,#1b1442,#0f0b26);
+  border:1px solid var(--line)}
+.achi svg{width:48px;height:48px;z-index:2}
+.achi.g{border-color:var(--line-gold);box-shadow:0 0 22px -6px rgba(231,194,123,.55)}
+.achi.v{border-color:var(--line-2);box-shadow:0 0 22px -6px var(--glow-v)}
+.achi.b{border-color:rgba(94,140,255,.4);box-shadow:0 0 22px -6px var(--glow-b)}
+.achi.lock{opacity:.4}
+.achi.lock::after{content:"";position:absolute;inset:0;border-radius:50%;backdrop-filter:grayscale(1)}
+.achi .locki{position:absolute;z-index:3;color:var(--mist-2);width:22px;height:22px}
+.achc span{display:block;margin-top:9px;font-size:11.5px;line-height:1.3;color:var(--mist)}
+.quote{margin-top:18px;padding:18px;text-align:center}
+.quote p{margin:0;font-family:"Playfair Display",serif;font-style:italic;font-size:16.5px;
+  color:#d8cdf2;line-height:1.5}
+.quote .qm{color:var(--gold);font-size:30px;line-height:0;font-family:"Playfair Display";display:block;height:14px}
+
+/* ============================================================ achievements screen */
+.ach-summary{display:flex;align-items:center;gap:14px;padding:16px;margin-bottom:6px}
+.ach-summary .big{font-family:"Playfair Display";font-weight:700;font-size:34px}
+.ach-summary .big b{color:var(--gold)}
+.ach-summary .sx{flex:1}
+.ach-summary .sx .t{font-size:13px;color:var(--mist);margin-bottom:8px}
+.filter{display:flex;gap:7px;margin:14px 0}
+.filter button{border:1px solid var(--line);background:rgba(255,255,255,.02);color:var(--mist);
+  border-radius:99px;padding:8px 15px;font-family:"Manrope";font-weight:600;font-size:13px;cursor:pointer;transition:.2s}
+.filter button.on{color:#fff;background:linear-gradient(180deg,#7a47e6,#5a2fb8);border-color:transparent}
+.ach-full{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 12px;margin-top:6px}
+.ach-full .achc span{font-size:11.5px}
+.ach-full .achc .desc{font-size:10.5px;color:var(--mist-2);margin-top:3px;display:block}
+
+/* ============================================================ rating screen */
+.podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:8px;align-items:end;margin:10px 0 4px}
+.pod{display:flex;flex-direction:column;align-items:center}
+.pod .pav{border-radius:50%;overflow:hidden;position:relative;border:2px solid var(--line-2);
+  background:radial-gradient(120% 100% at 50% 8%,rgba(122,71,230,.4),transparent),linear-gradient(180deg,#1a1340,#0c0921)}
+.pod .pav svg{position:absolute;inset:0;width:100%;height:100%}
+.pod.first .pav{width:84px;height:84px;border-color:var(--gold);box-shadow:0 0 26px -6px rgba(231,194,123,.7)}
+.pod.second .pav,.pod.third .pav{width:64px;height:64px}
+.pod.second .pav{border-color:#cfd6e6}.pod.third .pav{border-color:#d8a36a}
+.pod .crown{margin-bottom:-6px;width:26px;height:26px;color:var(--gold)}
+.pod .pn{font-family:"Playfair Display";font-weight:700;font-size:13.5px;margin-top:9px;text-align:center;line-height:1.1}
+.pod .pp{font-size:12px;color:var(--gold);font-weight:700;margin-top:3px;display:flex;align-items:center;gap:4px}
+.pod .pp .svgico{width:11px;height:11px}
+.pod .rank{margin-top:8px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-family:"Playfair Display";font-weight:700;font-size:13px;background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.pod.first .rank{color:var(--gold);border-color:var(--line-gold)}
+.rk-row{display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:9px}
+.rk-row .pos{width:26px;text-align:center;font-family:"Playfair Display";font-weight:700;font-size:16px;color:var(--mist)}
+.rk-row .rav{width:42px;height:42px;border-radius:50%;flex:0 0 auto;overflow:hidden;position:relative;
+  background:radial-gradient(120% 100% at 50% 8%,rgba(122,71,230,.4),transparent),linear-gradient(180deg,#1a1340,#0c0921);border:1px solid var(--line)}
+.rk-row .rav svg{position:absolute;inset:0;width:100%;height:100%}
+.rk-row .rinfo{flex:1;min-width:0}
+.rk-row .rinfo .rn{font-family:"Playfair Display";font-weight:700;font-size:15px}
+.rk-row .rinfo .rs{font-size:12px;color:var(--mist-2)}
+.rk-row .rpts{font-weight:700;color:var(--gold);font-size:15px;display:flex;align-items:center;gap:5px}
+.rk-row .rpts .svgico{width:13px;height:13px}
+.rk-row.me{border-color:var(--line-2);background:linear-gradient(160deg,rgba(122,71,230,.16),rgba(122,71,230,.05));
+  box-shadow:0 0 26px -10px var(--glow-v)}
+.rk-row.me .pos{color:var(--violet)}
+.rk-row .youtag{font-size:10px;font-weight:700;color:#fff;background:linear-gradient(180deg,#7a47e6,#5a2fb8);
+  padding:3px 8px;border-radius:99px;margin-left:6px}
+
+/* ============================================================ tabbar */
+.tabbar{flex:0 0 auto;height:72px;display:flex;align-items:center;justify-content:space-around;
+  padding:0 8px 6px;position:relative;z-index:30;
+  background:linear-gradient(0deg,var(--panel) 60%,rgba(13,10,28,0));
+  border-top:1px solid var(--line)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
+  color:var(--mist-2);transition:.2s;background:none;border:none;font-family:"Manrope";padding:6px 0}
+.tab svg{width:23px;height:23px}
+.tab span{font-size:10.5px;font-weight:600}
+.tab.on{color:var(--violet)}
+.tab.on svg{filter:drop-shadow(0 0 8px var(--glow-v))}
+.tab.center{flex:0 0 auto;position:relative;margin-top:-22px}
+.tab.center .emblem{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(160deg,#3a2a7a,#1a1140);border:1.5px solid var(--line-2);color:var(--blue);
+  box-shadow:0 0 26px -4px var(--glow-b),0 8px 18px -6px rgba(0,0,0,.8);animation:pulseE 3.4s ease-in-out infinite}
+.tab.center .emblem svg{width:30px;height:30px;filter:drop-shadow(0 0 6px var(--glow-b))}
+@keyframes pulseE{0%,100%{box-shadow:0 0 22px -6px var(--glow-b),0 8px 18px -6px rgba(0,0,0,.8)}
+  50%{box-shadow:0 0 34px -2px var(--glow-b),0 8px 18px -6px rgba(0,0,0,.8)}}
+
+/* ============================================================ features + footer */
+.features{position:relative;z-index:2;max-width:980px;margin:18px auto 0;padding:34px 22px;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:26px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.feat{text-align:center}
+.feat .fi{width:48px;height:48px;margin:0 auto 14px;color:var(--violet);filter:drop-shadow(0 0 12px var(--glow-v))}
+.feat .fi svg{width:100%;height:100%}
+.feat:nth-child(4) .fi{color:var(--gold);filter:drop-shadow(0 0 12px rgba(231,194,123,.5))}
+.feat h4{font-family:"Forum",serif;text-transform:uppercase;letter-spacing:.14em;font-size:14px;margin:0 0 9px;color:var(--ghost)}
+.feat p{margin:0;color:var(--mist);font-size:13px;line-height:1.55}
+.foot{position:relative;z-index:2;text-align:center;padding:28px 20px 44px;color:var(--mist-2);font-size:12.5px}
+.foot .mask-orn{width:40px;height:40px;margin:0 auto 12px;color:var(--violet);opacity:.6}
+.foot .mask-orn svg{width:100%;height:100%}
+.foot a{color:var(--mist);text-decoration:none}
+
+/* responsive */
+@media(max-width:560px){
+  .features{grid-template-columns:1fr 1fr;gap:28px 18px}
+  .brand{padding-top:38px}
+  .device{height:84vh;border-radius:40px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="bg-decor"></div>
+
+<!-- ============================== SVG SPRITE ============================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <radialGradient id="gMoon" cx="42%" cy="38%" r="70%">
+    <stop offset="0%" stop-color="#fdf8ff"/><stop offset="55%" stop-color="#e6dbff"/><stop offset="100%" stop-color="#b6a4e6"/>
+  </radialGradient>
+  <radialGradient id="gMoonHalo" cx="50%" cy="46%" r="55%">
+    <stop offset="0%" stop-color="#c7b4ff" stop-opacity=".9"/><stop offset="100%" stop-color="#7a47e6" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="gV" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#b89aff"/><stop offset="100%" stop-color="#6d3fd6"/>
+  </linearGradient>
+  <linearGradient id="gGold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#fbe6b0"/><stop offset="55%" stop-color="#e7c277"/><stop offset="100%" stop-color="#b88a37"/>
+  </linearGradient>
+  <linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#9bb8ff"/><stop offset="100%" stop-color="#4f7bf0"/>
+  </linearGradient>
+  <radialGradient id="gDark" cx="50%" cy="0%" r="100%">
+    <stop offset="0%" stop-color="#241a52"/><stop offset="100%" stop-color="#0b0820"/>
+  </radialGradient>
+</defs>
+
+<!-- crest / crystal -->
+<symbol id="i-crystal" viewBox="0 0 24 24">
+  <path d="M12 2.4 19 9 12 21.6 5 9Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M5 9h14M12 2.4 9.2 9 12 21.6M12 2.4 14.8 9 12 21.6" fill="none" stroke="currentColor" stroke-width=".9" opacity=".75"/>
+</symbol>
+<symbol id="i-crystal-fill" viewBox="0 0 24 24">
+  <path d="M12 2.4 19 9 12 21.6 5 9Z" fill="currentColor" opacity=".25"/>
+  <path d="M12 2.4 19 9 12 21.6 5 9Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M5 9h14M9.2 9 12 21.6 14.8 9" fill="none" stroke="currentColor" stroke-width=".9" opacity=".8"/>
+</symbol>
+<!-- nav -->
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="i-mask" viewBox="0 0 24 24"><path d="M3 7c3-1 6-1 9-1s6 0 9 1c0 5-2 9-5 9-1.6 0-2.4-1.2-4-1.2S9.6 16 8 16c-3 0-5-4-5-9Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="10" r="1.4" fill="currentColor"/><circle cx="16" cy="10" r="1.4" fill="currentColor"/></symbol>
+<symbol id="i-theater" viewBox="0 0 24 24"><path d="M4 5c2-.6 4-.6 6 0 0 3.5-1.4 6-3 6S4 8.5 4 5Z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M14 8c2-.6 4-.6 6 0 0 3.5-1.4 6-3 6s-3-2.5-3-6Z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 13c0 .8.6 1.4 1.4 1.4M16 16c0 .8.6 1.4 1.4 1.4" stroke="currentColor" stroke-width="1.2" fill="none"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<!-- ui -->
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 1.5 6 1.5 6h-15S6 14 6 9Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 19a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 7.6V12l3 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16 7a3 3 0 0 1 0 6M17 14c2.4.4 4 2.3 4 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+<symbol id="i-ticket" viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H6a2 2 0 0 1-2-2 2 2 0 0 0 0-4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" transform="translate(0 1)"/><path d="M14 7v10" stroke="currentColor" stroke-width="1.4" stroke-dasharray="1.6 2.2"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-diamond" viewBox="0 0 24 24"><path d="M12 3 21 12 12 21 3 12Z" fill="currentColor"/></symbol>
+<symbol id="i-diamond-o" viewBox="0 0 24 24"><path d="M12 3 21 12 12 21 3 12Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10V8a4 4 0 0 1 8 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 11v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="8" r="1.1" fill="currentColor"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></symbol>
+<symbol id="i-night-act" viewBox="0 0 24 24"><path d="M16 4a7 7 0 1 0 4 12 6 6 0 0 1-4-12Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 4l.8 2L9 6.8 6.8 7.6 6 10 5.2 7.6 3 6.8 5.2 6Z" fill="currentColor"/></symbol>
+<symbol id="i-tip" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-3 11.2V17h6v-2.8A6 6 0 0 0 12 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 20h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="6" r="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="18" r="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8.2 11 14.8 7.2M8.2 13 14.8 16.8" stroke="currentColor" stroke-width="1.4"/></symbol>
+
+<!-- crown -->
+<symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l3.5 3L12 5l5.5 6L21 8l-1.6 10H4.6Z" fill="currentColor"/><circle cx="3" cy="7.4" r="1.3" fill="currentColor"/><circle cx="21" cy="7.4" r="1.3" fill="currentColor"/><circle cx="12" cy="4" r="1.3" fill="currentColor"/></symbol>
+
+<!-- ============ large motifs ============ -->
+<symbol id="m-moon" viewBox="0 0 120 110">
+  <circle cx="60" cy="44" r="40" fill="url(#gMoonHalo)" opacity=".7"/>
+  <circle cx="60" cy="42" r="23" fill="url(#gMoon)"/>
+  <circle cx="51" cy="36" r="4.4" fill="#7a6aa8" opacity=".25"/>
+  <circle cx="66" cy="48" r="3" fill="#7a6aa8" opacity=".22"/>
+  <circle cx="62" cy="35" r="2.2" fill="#7a6aa8" opacity=".2"/>
+  <circle cx="24" cy="20" r="1.3" fill="#fff" opacity=".8"/><circle cx="96" cy="26" r="1.6" fill="#cdbcff" opacity=".8"/>
+  <circle cx="92" cy="14" r="1" fill="#fff" opacity=".7"/><circle cx="18" cy="40" r="1.1" fill="#fff" opacity=".6"/>
+  <path d="M0 96 L12 84 18 90 24 78 30 86 30 110 0 110Z" fill="#0a0817"/>
+  <path d="M30 86 L42 72 50 80 58 70 66 82 66 110 30 110Z" fill="#0a0817"/>
+  <path d="M66 82 L78 72 86 80 96 70 108 84 120 76 120 110 66 110Z" fill="#0a0817"/>
+  <path d="M44 72 h3 v-8 l-1.5-3 -1.5 3Z" fill="#0a0817"/>
+  <rect x="34" y="92" width="2" height="3" fill="#e7c277" opacity=".5"/><rect x="52" y="88" width="2" height="3" fill="#9b6bff" opacity=".5"/>
+</symbol>
+
+<symbol id="m-mask" viewBox="0 0 120 110">
+  <circle cx="60" cy="50" r="42" fill="url(#gMoonHalo)" opacity=".45"/>
+  <path d="M60 30c-22 0-40 8-44 22-2 8 4 22 18 24 13 2 18-8 26-8s13 10 26 8c14-2 20-16 18-24-4-14-22-22-44-22Z" fill="url(#gV)" opacity=".92"/>
+  <path d="M60 30c-22 0-40 8-44 22-2 8 4 22 18 24 13 2 18-8 26-8s13 10 26 8c14-2 20-16 18-24-4-14-22-22-44-22Z" fill="none" stroke="#d9c8ff" stroke-width="1.2" opacity=".5"/>
+  <path d="M30 50c4-5 14-7 22-3-1 8-9 11-16 9-5-1.5-7-3.5-6-6Z" fill="#0a0817"/>
+  <path d="M90 50c-4-5-14-7-22-3 1 8 9 11 16 9 5-1.5 7-3.5 6-6Z" fill="#0a0817"/>
+  <path d="M60 18l5 9-5 6-5-6Z" fill="url(#gGold)"/>
+  <path d="M42 70c4 4 8 6 18 6s14-2 18-6" fill="none" stroke="#1a1030" stroke-width="2" opacity=".5"/>
+  <circle cx="40" cy="40" r="1.3" fill="#fff" opacity=".7"/><circle cx="82" cy="38" r="1.5" fill="#ffe9bd" opacity=".7"/>
+</symbol>
+
+<symbol id="m-table" viewBox="0 0 120 110">
+  <ellipse cx="60" cy="50" rx="44" ry="20" fill="url(#gMoonHalo)" opacity=".4"/>
+  <ellipse cx="60" cy="62" rx="40" ry="16" fill="#170f38"/>
+  <ellipse cx="60" cy="58" rx="40" ry="16" fill="url(#gV)" opacity=".5"/>
+  <ellipse cx="60" cy="58" rx="40" ry="16" fill="none" stroke="#b89aff" stroke-width="1" opacity=".5"/>
+  <ellipse cx="60" cy="56" rx="22" ry="8" fill="#0a0817" opacity=".7"/>
+  <g fill="#0c0a1e">
+    <circle cx="22" cy="50" r="7"/><path d="M16 64c0-5 3-8 6-8s6 3 6 8Z"/>
+    <circle cx="60" cy="40" r="7"/><path d="M54 54c0-5 3-8 6-8s6 3 6 8Z"/>
+    <circle cx="98" cy="50" r="7"/><path d="M92 64c0-5 3-8 6-8s6 3 6 8Z"/>
+    <circle cx="40" cy="42" r="6"/><circle cx="80" cy="42" r="6"/>
+  </g>
+  <circle cx="22" cy="49" r="1.1" fill="#e25068" opacity=".8"/><circle cx="60" cy="39" r="1.1" fill="#9b6bff" opacity=".9"/><circle cx="98" cy="49" r="1.1" fill="#5e8cff" opacity=".8"/>
+  <rect x="56" y="50" width="8" height="5" rx="1" fill="#e7c277" opacity=".5"/>
+</symbol>
+
+<symbol id="m-raven" viewBox="0 0 120 110">
+  <circle cx="78" cy="32" r="30" fill="url(#gMoonHalo)" opacity=".7"/>
+  <circle cx="78" cy="30" r="20" fill="url(#gBlue)" opacity=".55"/>
+  <circle cx="78" cy="30" r="20" fill="url(#gMoon)" opacity=".35"/>
+  <path d="M34 78c0-2 1-4 3-5 0 0-6-10-3-22 2-8 9-13 17-12 5 .6 7 4 11 4 3 0 5-2 8-1-1 3-4 4-4 7 2 5 1 14-4 20-3 4-9 7-16 7l-2 5Z" fill="#0a0817"/>
+  <path d="M34 78c0-2 1-4 3-5 0 0-6-10-3-22 2-8 9-13 17-12 5 .6 7 4 11 4 3 0 5-2 8-1-1 3-4 4-4 7 2 5 1 14-4 20-3 4-9 7-16 7l-2 5Z" fill="none" stroke="#3a3170" stroke-width=".8"/>
+  <path d="M70 47c4-2 9-2 14 1-4 1-8 1-12 0Z" fill="#0a0817"/>
+  <path d="M50 54c3-1 6-1 9 1-3 1-6 1-9-1Z" fill="#0a0817"/>
+  <path d="M73 56l8-1-7 3Z" fill="url(#gGold)"/>
+  <circle cx="55" cy="44" r="1.6" fill="#9bb8ff"/><circle cx="55" cy="44" r="3" fill="#5e8cff" opacity=".4"/>
+  <path d="M24 92h24l-4-6h-16Z" fill="#0c0a1e"/>
+</symbol>
+
+<symbol id="m-crown" viewBox="0 0 120 110">
+  <circle cx="60" cy="48" r="40" fill="url(#gMoonHalo)" opacity=".35"/>
+  <path d="M28 44l11 10 21-20 21 20 11-10 -5 36H33Z" fill="url(#gGold)"/>
+  <path d="M28 44l11 10 21-20 21 20 11-10 -5 36H33Z" fill="none" stroke="#fff2cf" stroke-width="1" opacity=".5"/>
+  <circle cx="28" cy="42" r="4.5" fill="url(#gGold)"/><circle cx="92" cy="42" r="4.5" fill="url(#gGold)"/><circle cx="60" cy="22" r="4.5" fill="url(#gGold)"/>
+  <circle cx="48" cy="64" r="3.5" fill="#5a2fb8"/><circle cx="60" cy="62" r="4" fill="#e25068"/><circle cx="72" cy="64" r="3.5" fill="#5e8cff"/>
+  <rect x="30" y="80" width="60" height="6" rx="2" fill="#b88a37"/>
+  <circle cx="40" cy="30" r="1" fill="#fff" opacity=".7"/><circle cx="84" cy="26" r="1.3" fill="#fff" opacity=".7"/>
+</symbol>
+
+<!-- hooded figure (avatar / nearest game) -->
+<symbol id="m-hood" viewBox="0 0 120 130">
+  <radialGradient id="gHoodGlow" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#7a47e6" stop-opacity=".5"/><stop offset="100%" stop-color="#7a47e6" stop-opacity="0"/></radialGradient>
+  <circle cx="60" cy="50" r="48" fill="url(#gHoodGlow)"/>
+  <path d="M60 16c-22 0-36 18-36 44 0 30 6 56 6 70h60c0-14 6-40 6-70 0-26-14-44-36-44Z" fill="#15102e"/>
+  <path d="M60 16c-22 0-36 18-36 44 0 8 .6 16 1.4 24 6-4 12-6 18-6h33c6 0 12 2 18 6 .8-8 1.4-16 1.4-24 0-26-14-44-36-44Z" fill="#1d1546"/>
+  <path d="M60 26c-16 0-26 14-26 34 0 6 1 12 3 17 7-5 14-7 23-7s16 2 23 7c2-5 3-11 3-17 0-20-10-34-26-34Z" fill="#0a0817"/>
+  <ellipse cx="49" cy="58" rx="4" ry="5" fill="#9b6bff"/><ellipse cx="71" cy="58" rx="4" ry="5" fill="#9b6bff"/>
+  <ellipse cx="49" cy="58" rx="2" ry="2.6" fill="#d9c8ff"/><ellipse cx="71" cy="58" rx="2" ry="2.6" fill="#d9c8ff"/>
+  <path d="M60 16c-22 0-36 18-36 44" fill="none" stroke="#3a2f6e" stroke-width="1.4"/>
+  <path d="M44 100c5-3 10-4 16-4s11 1 16 4" fill="none" stroke="#0a0817" stroke-width="2" opacity=".6"/>
+  <circle cx="60" cy="118" r="3" fill="url(#gGold)" opacity=".6"/>
+</symbol>
+
+<!-- brand cat -->
+<symbol id="m-cat" viewBox="0 0 110 120">
+  <radialGradient id="gCatGlow" cx="50%" cy="40%" r="70%"><stop offset="0%" stop-color="#3a2a7a" stop-opacity=".6"/><stop offset="100%" stop-color="#3a2a7a" stop-opacity="0"/></radialGradient>
+  <circle cx="55" cy="56" r="52" fill="url(#gCatGlow)"/>
+  <path d="M18 10l16 20c6-3 13-4 21-4s15 1 21 4l16-20-4 34c7 8 11 18 11 30 0 24-20 42-44 42S10 98 10 74c0-12 4-22 11-30Z" fill="#0c0a1c"/>
+  <path d="M22 18l11 14-3 2-12-15Z" fill="#161033"/>
+  <path d="M88 18 77 32l3 2 12-15Z" fill="#161033"/>
+  <ellipse cx="40" cy="64" rx="7" ry="9" fill="#f0c34a"/><ellipse cx="70" cy="64" rx="7" ry="9" fill="#f0c34a"/>
+  <ellipse cx="40" cy="64" rx="2.4" ry="8" fill="#1a1206"/><ellipse cx="70" cy="64" rx="2.4" ry="8" fill="#1a1206"/>
+  <path d="M52 80l3 4 3-4Z" fill="#3a2f5e"/>
+  <path d="M30 84l-16 4M30 88l-15 8M80 84l16 4M80 88l15 8" stroke="#2a2150" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="40" cy="61" r="1.6" fill="#fff" opacity=".8"/><circle cx="70" cy="61" r="1.6" fill="#fff" opacity=".8"/>
+</symbol>
+
+<!-- role icons -->
+<symbol id="r-mafia" viewBox="0 0 40 40"><path d="M8 10l5 7c2-1 4.5-1.6 7-1.6s5 .6 7 1.6l5-7-1 11c2 2.5 3 5.5 3 9 0 .8-.1 1.6-.3 2.4H6.3C6.1 41.6 6 40.8 6 40c0-3.5 1-6.5 3-9Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><ellipse cx="14.5" cy="22" rx="2.4" ry="3" fill="currentColor"/><ellipse cx="25.5" cy="22" rx="2.4" ry="3" fill="currentColor"/><path d="M9 11l4 5M31 11l-4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="r-doctor" viewBox="0 0 40 40"><path d="M20 6v28M20 9c-3 0-5 2-5 5s2 5 5 5 5 2 5 5-2 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 8c4 2 8 2 12 0M14 32c4-2 8-2 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="20" cy="5" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="r-raven" viewBox="0 0 40 40"><path d="M9 31c0-1.5 1-3 2.5-3.6 0 0-3.5-6-2-12 1.5-5 6-8 11-7 3 .4 5 2.5 7 2.5 2 0 3-1.5 5-1-1 2-3 2.6-3 4.5 1.2 3 .6 9-2.6 12.6-2 2.2-5.4 4-9.4 4l-1.2 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M27 14l5-1-4.5 3Z" fill="currentColor"/><circle cx="20" cy="13" r="1.6" fill="currentColor"/></symbol>
+<symbol id="r-maniac" viewBox="0 0 40 40"><path d="M20 4l4 20-4 6-4-6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 30h12l-2 6h-8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 30v6" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="r-villager" viewBox="0 0 40 40"><circle cx="20" cy="13" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 36c0-7 5.4-11 12-11s12 4 12 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="r-comissar" viewBox="0 0 40 40"><path d="M20 5l13 4v9c0 9-6 14-13 17C13 32 7 27 7 18V9Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 13l2 4 4 .4-3 3 .8 4-3.8-2-3.8 2 .8-4-3-3 4-.4Z" fill="currentColor"/></symbol>
+<symbol id="r-seer" viewBox="0 0 40 40"><path d="M5 20c4-7 9-10 15-10s11 3 15 10c-4 7-9 10-15 10S9 27 5 20Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="20" cy="20" r="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="20" cy="20" r="1.8" fill="currentColor"/></symbol>
+<symbol id="r-wolf" viewBox="0 0 40 40"><path d="M6 8l8 8c2-1 4-1.5 6-1.5s4 .5 6 1.5l8-8-1 12 3 6c0 7-7 12-16 12S4 33 4 26l3-6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 22l3 2 3-2 3 2 3-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 30c2 1.5 6 1.5 8 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="r-jester" viewBox="0 0 40 40"><path d="M20 6c-2 0-3.6 1.4-4 3.3C13 7.6 9 8 7.6 11c-1.4 3 .6 6 .6 6S6 20 6 23.5C6 31 12 35 20 35s14-4 14-11.5c0-3.5-2.2-6.5-2.2-6.5s2-3 .6-6C31 8 27 7.6 24 9.3 23.6 7.4 22 6 20 6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="9" cy="11" r="1.6" fill="currentColor"/><circle cx="31" cy="11" r="1.6" fill="currentColor"/><circle cx="20" cy="8" r="1.6" fill="currentColor"/><circle cx="15" cy="24" r="1.6" fill="currentColor"/><circle cx="25" cy="24" r="1.6" fill="currentColor"/></symbol>
+
+<!-- achievement badges -->
+<symbol id="ach-star" viewBox="0 0 48 48"><path d="M24 6l4.8 12.8L42 19.6l-9.5 9.2 2.4 13.2L24 35.4 13.1 42l2.4-13.2L6 19.6l13.2-.8Z" fill="url(#gV)" stroke="#d9c8ff" stroke-width="1" stroke-linejoin="round"/></symbol>
+<symbol id="ach-strategy" viewBox="0 0 48 48"><path d="M18 12a4 4 0 1 1 8 0c4 1 7 5 7 11l3 5v3H12v-3l3-5c0-3 1-5 3-7Z" fill="url(#gGold)" stroke="#fff2cf" stroke-width="1" stroke-linejoin="round"/><rect x="14" y="32" width="20" height="6" rx="1.5" fill="#b88a37"/><path d="M20 12l-2-4M28 12l2-4" stroke="#fff2cf" stroke-width="1.4" stroke-linecap="round"/></symbol>
+<symbol id="ach-night" viewBox="0 0 48 48"><path d="M30 10a13 13 0 1 0 7 24 11 11 0 0 1-7-24Z" fill="url(#gBlue)" stroke="#bcd0ff" stroke-width="1" stroke-linejoin="round"/><path d="M16 10l1.4 3.6L21 15l-3.6 1.4L16 20l-1.4-3.6L11 15l3.6-1.4Z" fill="#bcd0ff"/></symbol>
+<symbol id="ach-mind" viewBox="0 0 48 48"><circle cx="24" cy="24" r="15" fill="none" stroke="url(#gV)" stroke-width="2.4"/><path d="M24 11a13 13 0 0 1 0 26M24 17a7 7 0 0 1 0 14M24 22a2 2 0 0 1 0 4" fill="none" stroke="#d9c8ff" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="ach-key" viewBox="0 0 48 48"><circle cx="18" cy="18" r="9" fill="none" stroke="url(#gV)" stroke-width="2.6"/><path d="M24 24l12 12M30 30l4-4M34 34l4-4" stroke="url(#gV)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="18" r="3" fill="#d9c8ff"/></symbol>
+<symbol id="ach-legend" viewBox="0 0 48 48"><path d="M14 16l5 5 5-9 5 9 5-5-2 14H16Z" fill="url(#gGold)" stroke="#fff2cf" stroke-width="1"/><circle cx="14" cy="15" r="2.4" fill="url(#gGold)"/><circle cx="34" cy="15" r="2.4" fill="url(#gGold)"/><circle cx="24" cy="9" r="2.4" fill="url(#gGold)"/><rect x="15" y="30" width="18" height="5" rx="1.5" fill="#b88a37"/><path d="M9 28c-3 4-3 9 0 13M39 28c3 4 3 9 0 13" fill="none" stroke="url(#gGold)" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="ach-flame" viewBox="0 0 48 48"><path d="M24 8c2 6-2 8-2 12 0 0-4-2-4-6-4 4-6 9-6 14a12 12 0 0 0 24 0c0-7-6-12-12-20Z" fill="url(#gV)" stroke="#d9c8ff" stroke-width="1" stroke-linejoin="round"/><path d="M24 24c1 3-1 4-1 6a4 4 0 0 0 4 4c2 0 3-2 3-4 0-3-3-4-6-6Z" fill="#fff" opacity=".5"/></symbol>
+<symbol id="ach-solo" viewBox="0 0 48 48"><circle cx="24" cy="16" r="6" fill="none" stroke="url(#gV)" stroke-width="2.4"/><path d="M14 38c0-6 4-10 10-10s10 4 10 10" fill="none" stroke="url(#gV)" stroke-width="2.4" stroke-linecap="round"/><circle cx="10" cy="14" r="2" fill="#766b9c"/><circle cx="38" cy="14" r="2" fill="#766b9c"/><circle cx="10" cy="30" r="2" fill="#766b9c"/><circle cx="38" cy="30" r="2" fill="#766b9c"/></symbol>
+<symbol id="ach-guest" viewBox="0 0 48 48"><path d="M10 18c4-1.4 8-1.4 14-1.4s10 0 14 1.4c0 8-3 14-7 14-2.4 0-3.6-2-6-2s-3.6 2-6 2c-4 0-7-6-7-14Z" fill="url(#gV)" stroke="#d9c8ff" stroke-width="1" stroke-linejoin="round"/><circle cx="18" cy="22" r="2" fill="#1a1030"/><circle cx="30" cy="22" r="2" fill="#1a1030"/><path d="M24 14l3 5h-6Z" fill="url(#gGold)"/></symbol>
+
+<!-- features -->
+<symbol id="f-atmo" viewBox="0 0 48 48"><path d="M32 8a16 16 0 1 0 8 28 13 13 0 0 1-8-28Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 10l1.6 4 4 1.6-4 1.6L14 21l-1.6-3.8L8 15.6l4-1.6Z" fill="currentColor"/><circle cx="40" cy="14" r="1.6" fill="currentColor"/></symbol>
+<symbol id="f-mask" viewBox="0 0 48 48"><path d="M8 16c5-1.4 10-1.4 16-1.4s11 0 16 1.4c0 9-4 16-8 16-3 0-4-2.4-8-2.4s-5 2.4-8 2.4c-4 0-8-7-8-16Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="17" cy="21" r="2.4" fill="currentColor"/><circle cx="31" cy="21" r="2.4" fill="currentColor"/><path d="M24 9l4 6h-8Z" fill="currentColor"/></symbol>
+<symbol id="f-comm" viewBox="0 0 48 48"><circle cx="24" cy="18" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 38c0-6 4-10 10-10s10 4 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 26c-3 4-3 9 0 13M40 26c3 4 3 9 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="f-trophy" viewBox="0 0 48 48"><path d="M16 10h16v8a8 8 0 0 1-16 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M16 12h-5c0 5 2 8 6 9M32 12h5c0 5-2 8-6 9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M22 26h4v6h-4ZM16 38c0-3 3-6 8-6s8 3 8 6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="f-orn" viewBox="0 0 48 48"><path d="M6 24c5-1.4 10-1.4 16-1.4s11 0 16 1.4M24 22v8M16 26c2 2 6 2 8 0s6-2 8 0" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="24" cy="20" r="2" fill="currentColor"/></symbol>
+
+<!-- corner flourish -->
+<symbol id="corner" viewBox="0 0 10 10"><path d="M5 1 9 5 5 9 1 5Z" fill="currentColor"/></symbol>
+<!-- laurel ring for avatar -->
+<symbol id="laurel-ring" viewBox="0 0 180 180">
+  <circle cx="90" cy="90" r="78" fill="none" stroke="url(#gV)" stroke-width="2" opacity=".5"/>
+  <circle cx="90" cy="90" r="83" fill="none" stroke="url(#gGold)" stroke-width="1" opacity=".6"/>
+  <g fill="url(#gGold)" opacity=".95">
+    <g transform="translate(90,168)">
+      <path d="M0 0 C-6 -4 -10 -10 -10 -16 C-4 -14 0 -8 0 0Z"/>
+      <path d="M0 0 C6 -4 10 -10 10 -16 C4 -14 0 -8 0 0Z"/>
+    </g>
+  </g>
+  <!-- left branch -->
+  <g fill="url(#gGold)" transform="rotate(0 90 90)">
+    <path d="M30 142 q-8 -10 -6 -22 q9 4 6 22Z"/>
+    <path d="M22 120 q-9 -8 -8 -20 q10 3 8 20Z"/>
+    <path d="M16 98 q-9 -7 -9 -19 q10 2 9 19Z"/>
+    <path d="M14 76 q-8 -8 -6 -20 q9 4 6 20Z"/>
+    <path d="M16 54 q-6 -9 -2 -20 q8 6 2 20Z"/>
+    <path d="M24 36 q-3 -10 4 -19 q5 8 -4 19Z"/>
+  </g>
+  <!-- right branch (mirror) -->
+  <g fill="url(#gGold)" transform="translate(180,0) scale(-1,1)">
+    <path d="M30 142 q-8 -10 -6 -22 q9 4 6 22Z"/>
+    <path d="M22 120 q-9 -8 -8 -20 q10 3 8 20Z"/>
+    <path d="M16 98 q-9 -7 -9 -19 q10 2 9 19Z"/>
+    <path d="M14 76 q-8 -8 -6 -20 q9 4 6 20Z"/>
+    <path d="M16 54 q-6 -9 -2 -20 q8 6 2 20Z"/>
+    <path d="M24 36 q-3 -10 4 -19 q5 8 -4 19Z"/>
+  </g>
+  <path d="M70 28 l20 0" stroke="url(#gGold)" stroke-width="0"/>
+  <path d="M90 12 l5 9 -5 6 -5 -6Z" fill="url(#gGold)"/>
+</symbol>
+</svg>
+
+<!-- ============================== BRAND HEADER ============================== -->
+<header class="brand">
+  <div class="crest"><svg viewBox="0 0 24 24"><use href="#i-crystal"/></svg></div>
+  <h1 class="wordmark">Аве<span class="b">Мафия</span></h1>
+  <div class="tag"><i><svg><use href="#i-diamond"/></svg></i>Клуб мафиозных игр<i><svg><use href="#i-diamond"/></svg></i></div>
+</header>
+
+<!-- ============================== PHONE ============================== -->
+<main class="stage">
+<div class="phone">
+<div class="device">
+<div class="screen-frame">
+
+  <!-- status bar -->
+  <div class="statusbar">
+    <span>9:41</span>
+    <span class="sig">
+      <svg width="17" height="11" viewBox="0 0 17 11"><g fill="#f1ecff"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></g></svg>
+      <svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 2.4c2.3 0 4.4.9 6 2.3l-1.4 1.5A6.5 6.5 0 0 0 8 4.5 6.5 6.5 0 0 0 3.4 6.2L2 4.7A8.7 8.7 0 0 1 8 2.4Zm0 3.4c1.3 0 2.6.5 3.5 1.4L8 11 4.5 7.2A5 5 0 0 1 8 5.8Z" fill="#f1ecff"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#f1ecff" stroke-opacity=".5"/><rect x="2.6" y="2.6" width="15" height="6.8" rx="1.4" fill="#f1ecff"/><rect x="22.4" y="4" width="1.8" height="4" rx="1" fill="#f1ecff" fill-opacity=".5"/></svg>
+    </span>
+  </div>
+
+  <div class="viewport" id="vp">
+
+  <!-- ===================== HOME ===================== -->
+  <section class="screen is-active" id="home" data-tab="home">
+    <div class="topbar">
+      <button class="icon-btn" aria-label="Меню"><svg><use href="#i-menu"/></svg></button>
+      <div class="tb-word">Аве<span class="b">Мафия</span></div>
+      <button class="icon-btn" aria-label="Уведомления"><svg><use href="#i-bell"/></svg></button>
+    </div>
+
+    <div class="eyebrow"><span class="di"><svg><use href="#i-diamond"/></svg></span>Ближайшая игра</div>
+
+    <div class="frame">
+      <span class="corner tl"><svg><use href="#corner"/></svg></span><span class="corner tr"><svg><use href="#corner"/></svg></span>
+      <span class="corner bl"><svg><use href="#corner"/></svg></span><span class="corner br"><svg><use href="#corner"/></svg></span>
+      <div class="hero-art">
+        <svg class="motif"><use href="#m-hood"/></svg>
+        <div class="gloss"></div>
+      </div>
+      <div class="ng-body">
+        <h2 class="ng-title">Лунная ночь</h2>
+        <div class="row-ico"><svg class="svgico"><use href="#i-cal"/></svg><b>24 мая 2025</b></div>
+        <div class="row-ico"><svg class="svgico"><use href="#i-clock"/></svg><b>19:00</b></div>
+        <div class="row-ico"><svg class="svgico"><use href="#i-pin"/></svg><span><b>Клуб «Теневой Дом»</b><br><span class="sub">ул. Лунная, 24</span></span></div>
+        <div class="row-ico price-tag"><svg class="svgico"><use href="#i-ticket"/></svg><span><b>1200 ₽</b> <span class="sub">с человека</span></span></div>
+        <button class="btn btn-primary mt" data-go="game-detail" data-game="moon"><svg class="svgico"><use href="#i-diamond"/></svg>Записаться</button>
+      </div>
+    </div>
+
+    <div class="quick" style="margin-top:14px">
+      <div class="qbtn" data-go="games"><span class="qi"><svg><use href="#i-mask"/></svg></span><span>Игры</span></div>
+      <div class="qbtn" data-go="profile"><span class="qi"><svg><use href="#i-user"/></svg></span><span>Профиль</span></div>
+      <div class="qbtn" data-go="roles"><span class="qi"><svg><use href="#i-theater"/></svg></span><span>Роли</span></div>
+      <div class="qbtn" data-go="achievements"><span class="qi"><svg><use href="#ach-star"/></svg></span><span>Мои<br>достижения</span></div>
+    </div>
+
+    <div class="eyebrow with-link"><span style="display:flex;align-items:center;gap:9px"><span class="di"><svg><use href="#i-diamond"/></svg></span>Анонсы и события</span><span class="lk" data-go="games">Все</span></div>
+
+    <div class="frame ann" data-go="game-detail" data-game="moon" style="cursor:pointer">
+      <div class="thumb"><svg><use href="#m-moon"/></svg></div>
+      <div class="meta"><h3>Лунная ночь</h3><p>Мистическая игра при свете полной луны.</p><span class="date">24 мая</span></div>
+    </div>
+    <div class="frame ann" data-go="game-detail" data-game="masquerade" style="cursor:pointer">
+      <div class="thumb"><svg><use href="#m-mask"/></svg></div>
+      <div class="meta"><h3>Маскарад</h3><p>Бал масок и интриг. Кто скрывается за ними?</p><span class="date">7 июня</span></div>
+    </div>
+    <div class="frame ann" data-go="game-detail" data-game="table" style="cursor:pointer">
+      <div class="thumb"><svg><use href="#m-table"/></svg></div>
+      <div class="meta"><h3>Теневой стол</h3><p>Игра для тех, кто любит глубокие стратегии.</p><span class="date">21 июня</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== GAMES ===================== -->
+  <section class="screen" id="games" data-tab="games">
+    <div class="topbar">
+      <button class="icon-btn" data-go="home" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+      <h1>Игры</h1>
+      <button class="icon-btn" aria-label="Фильтр"><svg><use href="#i-filter"/></svg></button>
+    </div>
+
+    <div class="seg" id="gamesSeg">
+      <button class="on" data-list="upcoming">Ближайшие</button>
+      <button data-list="past">Прошедшие</button>
+    </div>
+
+    <div id="list-upcoming">
+      <!-- cards injected by JS -->
+    </div>
+    <div id="list-past" class="hide">
+      <!-- past cards injected by JS -->
+    </div>
+
+    <button class="btn btn-ghost" style="margin-top:6px"><svg class="svgico"><use href="#i-cal"/></svg>Календарь игр</button>
+  </section>
+
+  <!-- ===================== GAME DETAIL ===================== -->
+  <section class="screen" id="game-detail" data-tab="games">
+    <div class="topbar">
+      <button class="icon-btn" data-go="games" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+      <h1>Игра</h1>
+      <button class="icon-btn" aria-label="Поделиться"><svg><use href="#i-share"/></svg></button>
+    </div>
+
+    <div class="gd-hero">
+      <svg class="motif" id="gd-motif"><use href="#m-moon"/></svg>
+      <span class="lvlbadge" id="gd-level">Уровень: обычная</span>
+      <h2 class="gd-title" id="gd-title">Лунная ночь</h2>
+    </div>
+
+    <div class="info-grid">
+      <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-cal"/></svg>Дата</div><div class="val" id="gd-date">24 мая 2025</div></div>
+      <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-clock"/></svg>Время</div><div class="val" id="gd-time">19:00</div></div>
+      <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-pin"/></svg>Место</div><div class="val" id="gd-place">Теневой Дом</div></div>
+      <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-ticket"/></svg>Цена</div><div class="val gold" id="gd-price">1200 ₽</div></div>
+    </div>
+
+    <div class="eyebrow"><span class="di"><svg><use href="#i-diamond"/></svg></span>Описание</div>
+    <p class="section-p" id="gd-desc"></p>
+
+    <div class="chips">
+      <span class="chip"><svg class="svgico" style="width:13px;color:var(--blue);vertical-align:-2px"><use href="#i-users"/></svg> <b id="gd-seats">5 из 10</b> мест свободно</span>
+      <span class="chip">Формат: <b id="gd-format">классика</b></span>
+    </div>
+
+    <div class="cancel-note"><svg class="svgico"><use href="#i-info"/></svg><span>Отмена записи возможна не позднее чем за 24 часа до начала игры — с полным возвратом средств.</span></div>
+
+    <!-- booking state machine -->
+    <div id="bk-initial">
+      <button class="btn btn-primary mt" id="bk-book"><svg class="svgico"><use href="#i-diamond"/></svg>Записаться</button>
+    </div>
+
+    <div id="bk-booked" class="hide">
+      <div class="status-line wait"><svg class="svgico"><use href="#i-clock"/></svg>Место забронировано. Ожидается оплата.</div>
+      <button class="btn btn-gold mt" id="bk-pay"><svg class="svgico"><use href="#i-ticket"/></svg>Оплатить 1200 ₽</button>
+    </div>
+
+    <div id="bk-paid" class="hide">
+      <div class="status-line paid"><svg class="svgico"><use href="#i-check"/></svg>Оплачено. Место закреплено за вами.</div>
+      <div class="ticket">
+        <div class="tk-top">
+          <div class="tk-glow"></div>
+          <div class="tk-elabel">Электронный билет</div>
+          <h3 id="tk-title">Лунная ночь</h3>
+          <div class="tk-sub" id="tk-sub">24 мая 2025 · 19:00 · Теневой Дом</div>
+        </div>
+        <div class="tk-perf">
+          <div class="qr"><svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#0a0817"/>
+            <g fill="#e6dbff">
+              <rect x="6" y="6" width="22" height="22"/><rect x="11" y="11" width="12" height="12" fill="#0a0817"/><rect x="14" y="14" width="6" height="6" fill="#e6dbff"/>
+              <rect x="72" y="6" width="22" height="22"/><rect x="77" y="11" width="12" height="12" fill="#0a0817"/><rect x="80" y="14" width="6" height="6" fill="#e6dbff"/>
+              <rect x="6" y="72" width="22" height="22"/><rect x="11" y="77" width="12" height="12" fill="#0a0817"/><rect x="14" y="80" width="6" height="6" fill="#e6dbff"/>
+              <rect x="36" y="6" width="6" height="6"/><rect x="48" y="6" width="6" height="12"/><rect x="60" y="12" width="6" height="6"/>
+              <rect x="6" y="36" width="6" height="6"/><rect x="18" y="42" width="6" height="6"/><rect x="6" y="54" width="12" height="6"/>
+              <rect x="36" y="36" width="6" height="6"/><rect x="48" y="42" width="12" height="6"/><rect x="60" y="36" width="6" height="12"/><rect x="42" y="54" width="6" height="12"/><rect x="54" y="60" width="12" height="6"/>
+              <rect x="72" y="42" width="6" height="6"/><rect x="84" y="36" width="6" height="12"/><rect x="72" y="60" width="12" height="6"/><rect x="84" y="72" width="6" height="6"/>
+              <rect x="36" y="72" width="6" height="12"/><rect x="48" y="84" width="6" height="6"/><rect x="60" y="78" width="6" height="6"/>
+            </g></svg></div>
+          <div class="tk-fields">
+            <div class="f"><div class="l">Гость</div><div class="v">Ночной Странник</div></div>
+            <div class="f"><div class="l">Билет №</div><div class="v" id="tk-num">AM-0427</div></div>
+            <div class="f"><div class="l">Статус</div><div class="v ok">Оплачено</div></div>
+            <div class="f"><div class="l">Мест</div><div class="v">1</div></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-ghost mt"><svg class="svgico"><use href="#i-diamond-o"/></svg>Показать на входе</button>
+    </div>
+  </section>
+
+  <!-- ===================== ROLES ===================== -->
+  <section class="screen" id="roles" data-tab="roles">
+    <div class="topbar">
+      <button class="icon-btn" data-go="home" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+      <h1>Роли</h1>
+      <button class="icon-btn" aria-label="О ролях"><svg><use href="#i-info"/></svg></button>
+    </div>
+    <p class="intro">Коллекция ролей клуба. Каждая партия — новая маска, новая интрига. Изучите способности и стиль игры за каждую сторону.</p>
+
+    <div class="cat-head"><span class="cat-dot" style="color:var(--mafia)"></span>За мафию<span class="ct-count">3 роли</span></div>
+    <div id="cat-mafia"></div>
+
+    <div class="cat-head"><span class="cat-dot" style="color:var(--third)"></span>За третью сторону<span class="ct-count">3 роли</span></div>
+    <div id="cat-third"></div>
+
+    <div class="cat-head"><span class="cat-dot" style="color:var(--good)"></span>За мирных<span class="ct-count">4 роли</span></div>
+    <div id="cat-good"></div>
+  </section>
+
+  <!-- ===================== ROLE DETAIL ===================== -->
+  <section class="screen" id="role-detail" data-tab="roles">
+    <div class="topbar">
+      <button class="icon-btn" data-go="roles" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+      <h1 id="rd-cat-title">Роль</h1>
+      <span style="width:38px"></span>
+    </div>
+    <div class="rd-hero">
+      <div class="rd-mask" id="rd-mask"><svg><use href="#r-mafia"/></svg></div>
+      <span class="rd-cat" id="rd-cat">За мафию</span>
+      <h2 class="rd-name" id="rd-name">Дон</h2>
+      <div class="diff" id="rd-diff"></div>
+    </div>
+
+    <div class="frame rd-block">
+      <div class="bt"><svg class="svgico"><use href="#i-info"/></svg>Описание</div>
+      <p id="rd-full"></p>
+    </div>
+    <div class="frame rd-block">
+      <div class="bt"><svg class="svgico"><use href="#i-target"/></svg>Цель</div>
+      <p id="rd-goal"></p>
+    </div>
+    <div class="frame rd-block" id="rd-night-block">
+      <div class="bt"><svg class="svgico"><use href="#i-night-act"/></svg>Ночное действие</div>
+      <p id="rd-night"></p>
+    </div>
+    <div class="frame rd-block">
+      <div class="bt"><svg class="svgico"><use href="#i-tip"/></svg>Советы</div>
+      <div id="rd-tips"></div>
+    </div>
+  </section>
+
+  <!-- ===================== PROFILE ===================== -->
+  <section class="screen" id="profile" data-tab="profile">
+    <div class="topbar">
+      <h1 style="margin-left:4px">Профиль</h1>
+      <button class="icon-btn" aria-label="Настройки"><svg><use href="#i-gear"/></svg></button>
+    </div>
+
+    <div class="pf-avatar">
+      <div class="pf-ring"><svg><use href="#laurel-ring"/></svg></div>
+      <div class="pf-portrait"><svg><use href="#m-hood"/></svg></div>
+      <div class="pf-lvl">23</div>
+    </div>
+    <h2 class="pf-name">Ночной Странник</h2>
+    <div class="pf-status"><span class="ln"></span>Член клуба<span class="ln r"></span></div>
+
+    <div class="stat-row">
+      <div class="frame stat"><div class="sl">Рейтинг</div><div class="sv">1847<span class="gem"><svg><use href="#i-diamond"/></svg></span></div></div>
+      <div class="frame stat tap" data-go="rating"><div class="sl">Место в рейтинге</div><div class="sv gold">#27</div></div>
+    </div>
+
+    <div class="frame winwrap">
+      <div class="wh"><span class="wl">Процент побед</span><span class="wp">62%</span></div>
+      <div class="bar"><i style="width:62%"></i></div>
+      <div class="wf"><span>Побед: <b>68</b></span><span>Поражений: <b>42</b></span></div>
+    </div>
+
+    <div class="eyebrow"><span class="di"><svg><use href="#i-diamond"/></svg></span>Любимые роли</div>
+    <div class="fav">
+      <div class="favc" data-go="role-detail" data-role="mafia"><div class="favi" style="color:var(--mafia)"><svg><use href="#r-mafia"/></svg></div><span>Мафия</span></div>
+      <div class="favc" data-go="role-detail" data-role="doctor"><div class="favi" style="color:var(--good)"><svg><use href="#r-doctor"/></svg></div><span>Доктор</span></div>
+      <div class="favc" data-go="role-detail" data-role="raven"><div class="favi" style="color:var(--blue)"><svg><use href="#r-raven"/></svg></div><span>Ворон</span></div>
+    </div>
+
+    <div class="eyebrow with-link"><span style="display:flex;align-items:center;gap:9px"><span class="di"><svg><use href="#i-diamond"/></svg></span>Достижения</span><span class="lk" data-go="achievements">Все</span></div>
+    <div class="ach-grid">
+      <div class="achc"><div class="achi v" style="color:var(--violet)"><svg><use href="#ach-star"/></svg></div><span>Первая победа</span></div>
+      <div class="achc"><div class="achi g" style="color:var(--gold)"><svg><use href="#ach-strategy"/></svg></div><span>Стратег</span></div>
+      <div class="achc"><div class="achi b" style="color:var(--blue)"><svg><use href="#ach-night"/></svg></div><span>Ночная тень</span></div>
+      <div class="achc"><div class="achi v" style="color:var(--violet)"><svg><use href="#ach-mind"/></svg></div><span>Мастер психологии</span></div>
+      <div class="achc"><div class="achi v" style="color:var(--violet)"><svg><use href="#ach-key"/></svg></div><span>Хранитель тайн</span></div>
+      <div class="achc"><div class="achi g" style="color:var(--gold)"><svg><use href="#ach-legend"/></svg></div><span>Легенда клуба</span></div>
+    </div>
+
+    <div class="frame quote">
+      <span class="qm">“</span>
+      <p>В игре нет случайностей,<br>есть только выбор.</p>
+    </div>
+  </section>
+
+  <!-- ===================== ACHIEVEMENTS ===================== -->
+  <section class="screen" id="achievements" data-tab="profile">
+    <div class="topbar">
+      <button class="icon-btn" data-go="profile" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+      <h1>Мои достижения</h1>
+      <span style="width:38px"></span>
+    </div>
+
+    <div class="frame ach-summary">
+      <div class="big"><b>11</b>/15</div>
+      <div class="sx"><div class="t">Получено достижений</div><div class="bar"><i style="width:73%"></i></div></div>
+    </div>
+
+    <div class="filter" id="achFilter">
+      <button class="on" data-f="all">Все</button>
+      <button data-f="got">Полученные</button>
+      <button data-f="lock">Закрытые</button>
+    </div>
+
+    <div class="ach-full" id="achFull"></div>
+  </section>
+
+  <!-- ===================== RATING ===================== -->
+  <section class="screen" id="rating" data-tab="profile">
+    <div class="topbar">
+      <button class="icon-btn" data-go="profile" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+      <h1>Рейтинг</h1>
+      <span style="width:38px"></span>
+    </div>
+
+    <div class="seg" id="ratingSeg">
+      <button class="on">Общий</button>
+      <button>Месяц</button>
+      <button>Сезон</button>
+    </div>
+
+    <div class="podium">
+      <div class="pod second">
+        <div class="pav"><svg><use href="#m-hood"/></svg></div>
+        <div class="pn">Серый<br>Кардинал</div>
+        <div class="pp"><svg class="svgico"><use href="#i-diamond"/></svg>2310</div>
+        <div class="rank">2</div>
+      </div>
+      <div class="pod first">
+        <div class="crown"><svg viewBox="0 0 24 24"><use href="#i-crown"/></svg></div>
+        <div class="pav"><svg><use href="#m-hood"/></svg></div>
+        <div class="pn">Госпожа<br>Полночь</div>
+        <div class="pp"><svg class="svgico"><use href="#i-diamond"/></svg>2680</div>
+        <div class="rank">1</div>
+      </div>
+      <div class="pod third">
+        <div class="pav"><svg><use href="#m-hood"/></svg></div>
+        <div class="pn">Тихий<br>Шёпот</div>
+        <div class="pp"><svg class="svgico"><use href="#i-diamond"/></svg>2155</div>
+        <div class="rank">3</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px" id="ratingList"></div>
+  </section>
+
+  </div><!-- /viewport -->
+
+  <!-- ===================== TABBAR ===================== -->
+  <nav class="tabbar" id="tabbar">
+    <button class="tab on" data-tab="home" data-go="home"><svg><use href="#i-home"/></svg><span>Главная</span></button>
+    <button class="tab" data-tab="games" data-go="games"><svg><use href="#i-mask"/></svg><span>Игры</span></button>
+    <button class="tab center" data-go="home" aria-label="AveMafia"><span class="emblem"><svg><use href="#i-crystal-fill"/></svg></span></button>
+    <button class="tab" data-tab="roles" data-go="roles"><svg><use href="#i-theater"/></svg><span>Роли</span></button>
+    <button class="tab" data-tab="profile" data-go="profile"><svg><use href="#i-user"/></svg><span>Профиль</span></button>
+  </nav>
+
+</div><!-- /screen-frame -->
+</div><!-- /device -->
+</div><!-- /phone -->
+</main>
+
+<!-- ============================== FEATURES ============================== -->
+<section class="features">
+  <div class="feat"><div class="fi"><svg><use href="#f-atmo"/></svg></div><h4>Атмосфера</h4><p>Погружение в мир тайн, масок и ночных интриг.</p></div>
+  <div class="feat"><div class="fi"><svg><use href="#f-mask"/></svg></div><h4>Роли и маски</h4><p>Более 30 уникальных ролей в каждой игре.</p></div>
+  <div class="feat"><div class="fi"><svg><use href="#f-comm"/></svg></div><h4>Живое сообщество</h4><p>Клуб единомышленников и настоящих ценителей мафии.</p></div>
+  <div class="feat"><div class="fi"><svg><use href="#f-trophy"/></svg></div><h4>Достижения</h4><p>Играйте, побеждайте и получайте уникальные награды.</p></div>
+</section>
+
+<footer class="foot">
+  <div class="mask-orn"><svg><use href="#f-mask"/></svg></div>
+  <div>АвеМафия · Telegram Mini App · интерактивный прототип интерфейса</div>
+</footer>
+
+<!-- ============================== SCRIPT ============================== -->
+<script>
+(function(){
+  /* ---------- data ---------- */
+  const GAMES = {
+    moon:{title:"Лунная ночь",motif:"m-moon",date:"24 мая 2025",time:"19:00",place:"Клуб «Теневой Дом»",price:"1200 ₽",seats:"5 из 10",seatsN:5,status:"soon",statusTxt:"Скоро",format:"классика",level:"Уровень: обычная",
+      desc:"Игра при свете полной луны для опытных и новичков. Атмосферный стол, мягкое освещение и долгие ночи, в которые решается судьба города."},
+    masquerade:{title:"Маскарад",motif:"m-mask",date:"7 июня 2025",time:"18:30",place:"Академия Теней",price:"1300 ₽",seats:"7 из 12",seatsN:7,status:"open",statusTxt:"Открыта",format:"тематическая",level:"Уровень: обычная",
+      desc:"Бал масок и интриг. Все приходят в образах, а за каждой маской может скрываться кто угодно. Идеально для тех, кто любит отыгрыш и психологию."},
+    table:{title:"Теневой стол",motif:"m-table",date:"21 июня 2025",time:"19:00",place:"Клуб «Теневой Дом»",price:"1200 ₽",seats:"4 из 10",seatsN:4,status:"open",statusTxt:"Открыта",format:"закрытый стол",level:"Уровень: опытные",
+      desc:"Игра для тех, кто любит глубокие стратегии и тонкий блеф. Сильный состав, минимум случайностей — только холодный расчёт и чтение соперников."},
+    raven:{title:"Зов ворона",motif:"m-raven",date:"5 июля 2025",time:"19:30",place:"Башня Ворона",price:"1400 ₽",seats:"6 из 12",seatsN:6,status:"soon",statusTxt:"Скоро",format:"тематическая",level:"Уровень: обычная",
+      desc:"Мрачная тематическая игра под знаком ворона. Особый сценарий, расширенный набор ролей третьей стороны и неожиданные повороты сюжета."},
+    crown:{title:"Проклятие королей",motif:"m-crown",date:"19 июля 2025",time:"18:00",place:"Замок Ночи",price:"1500 ₽",seats:"3 из 10",seatsN:3,status:"soon",statusTxt:"Скоро",format:"турнир",level:"Уровень: опытные",
+      desc:"Премиальная игра в антураже старинного замка. Интриги двора, борьба за корону и роли, которые меняют исход одной фразой."}
+  };
+  const PAST = {
+    fog:{title:"Туманный пакт",motif:"m-table",date:"3 мая 2025",time:"19:00",place:"Теневой Дом",price:"1200 ₽",seats:"0 из 10",status:"done",statusTxt:"Игра завершена",format:"классика",level:"Уровень: обычная",desc:"Завершённая игра клуба."},
+    eclipse:{title:"Затмение",motif:"m-moon",date:"26 апреля 2025",time:"18:30",place:"Академия Теней",price:"1300 ₽",seats:"0 из 12",status:"done",statusTxt:"Игра завершена",format:"тематическая",level:"Уровень: новички",desc:"Завершённая игра клуба."}
+  };
+
+  const ROLES = {
+    // mafia
+    don:{name:"Дон",icon:"r-mafia",cat:"За мафию",catKey:"mafia",color:"var(--mafia)",diff:3,
+      short:"Глава мафии. Ведёт чёрную команду и решает, кого убрать ночью.",
+      full:"Дон — лидер мафии и её главный стратег. Он координирует ночные действия команды и принимает финальные решения. Днём держится незаметно, мастерски уводя подозрения от своих.",
+      goal:"Привести мафию к численному превосходству над мирными жителями.",
+      night:"Вместе с командой выбирает жертву на ночь; неуязвим для проверки комиссара как рядовая мафия.",
+      tips:["Не выделяйтесь активностью в первые круги.","Берегите союзников — защищайте их голосованием.","Готовьте заранее «легенду» на случай проверки."]},
+    wolf:{name:"Оборотень",icon:"r-wolf",cat:"За мафию",catKey:"mafia",color:"var(--mafia)",diff:3,
+      short:"Скрытая угроза мафии, которая выходит на охоту в особые ночи.",
+      full:"Оборотень действует на стороне мафии, но его поведение труднее предсказать. В нужный момент он усиливает чёрную команду неожиданным ходом.",
+      goal:"Помочь мафии устранить мирных, оставаясь вне подозрений.",
+      night:"В определённые ночи получает дополнительную способность атаки.",
+      tips:["Маскируйтесь под мирного активиста.","Используйте силу в переломный момент игры.","Не спорьте слишком яростно — это выдаёт."]},
+    consigliere:{name:"Консильери",icon:"r-mafia",cat:"За мафию",catKey:"mafia",color:"var(--mafia)",diff:2,
+      short:"Советник дона, тень за его спиной и резерв команды.",
+      full:"Консильери — правая рука дона. Если глава мафии выбывает, именно он берёт командование на себя и продолжает игру за чёрных.",
+      goal:"Сохранить мафию и заменить дона при его выбытии.",
+      night:"Знает состав мафии; при гибели дона принимает руководство.",
+      tips:["Запоминайте все ходы дона.","Стройте репутацию «мирного логика».","Не раскрывайтесь раньше времени."]},
+    // third
+    maniac:{name:"Маньяк",icon:"r-maniac",cat:"За третью сторону",catKey:"third",color:"var(--third)",diff:3,
+      short:"Одиночка, играющий сам за себя. Опасен для всех.",
+      full:"Маньяк не входит ни в одну команду. Его цель — остаться последним за столом. Он плетёт собственную игру, стравливая мафию и мирных.",
+      goal:"Остаться в живых, когда все остальные выбыли.",
+      night:"Каждую ночь самостоятельно выбирает одну жертву.",
+      tips:["Не привлекайте внимание рано.","Сталкивайте команды лбами.","Считайте, кого выгоднее убрать ночью."]},
+    raven:{name:"Ворон",icon:"r-raven",cat:"За третью сторону",catKey:"third",color:"var(--blue)",diff:2,
+      short:"Мистическая фигура, чьи действия меняют ход ночи.",
+      full:"Ворон — вестник судьбы. Его способность вносит хаос в планы обеих сторон и может перевернуть, казалось бы, решённую партию.",
+      goal:"Выполнить собственное условие победы, недоступное командам.",
+      night:"Накладывает особую метку, влияющую на ход следующего дня.",
+      tips:["Действуйте непредсказуемо.","Сейте сомнение в речах других.","Берегите способность для решающего момента."]},
+    jester:{name:"Шут",icon:"r-jester",cat:"За третью сторону",catKey:"third",color:"var(--third)",diff:2,
+      short:"Победитель наоборот: его задача — быть казнённым городом.",
+      full:"Шут выигрывает, если город днём отправит его на казнь голосованием. Парадоксальная роль для любителей театра и провокаций.",
+      goal:"Спровоцировать город изгнать именно вас.",
+      night:"Ночного действия нет — вся игра идёт днём.",
+      tips:["Ведите себя подозрительно, но в меру.","Подбрасывайте городу ложные улики на себя.","Не перестарайтесь — иначе вам поверят."]},
+    // good
+    villager:{name:"Мирный житель",icon:"r-villager",cat:"За мирных",catKey:"good",color:"var(--good)",diff:1,
+      short:"Основа города. Голос, логика и интуиция против мафии.",
+      full:"У мирного жителя нет ночных способностей, но именно его голос решает всё. Внимательность к деталям и умение убеждать — главное оружие.",
+      goal:"Вычислить и изгнать всю мафию днём.",
+      night:"Ночного действия нет.",
+      tips:["Слушайте больше, чем говорите.","Отмечайте противоречия в речах.","Доверяйте логике, а не эмоциям."]},
+    doctor:{name:"Доктор",icon:"r-doctor",cat:"За мирных",catKey:"good",color:"var(--good)",diff:2,
+      short:"Хранитель жизни. Каждую ночь спасает одного игрока.",
+      full:"Доктор лечит выбранного игрока, отменяя покушение мафии. Грамотный доктор способен в одиночку переломить игру, сохранив ключевых мирных.",
+      goal:"Сохранить жизни мирных и помочь городу победить.",
+      night:"Выбирает игрока, которого защищает от убийства этой ночью.",
+      tips:["Не лечите одного и того же дважды подряд.","Берегите комиссара и провидицу.","Иногда лечите себя — вы тоже цель."]},
+    comissar:{name:"Комиссар",icon:"r-comissar",cat:"За мирных",catKey:"good",color:"var(--good)",diff:3,
+      short:"Закон города. Проверяет игроков и ведёт охоту на мафию.",
+      full:"Комиссар каждую ночь проверяет одного игрока на принадлежность к мафии. Его слово веско, но раскрытие делает его мишенью №1.",
+      goal:"Найти мафию и убедить город изгнать её.",
+      night:"Проверяет роль одного игрока; может стрелять (по правилам стола).",
+      tips:["Не раскрывайтесь без необходимости.","Передавайте информацию аккуратно.","Стройте проверки от подозрительных игроков."]},
+    seer:{name:"Провидица",icon:"r-seer",cat:"За мирных",catKey:"good",color:"var(--good)",diff:2,
+      short:"Видит истинную природу игроков сквозь маски.",
+      full:"Провидица получает намёки о ролях окружающих. Её сила тонка и требует осторожности: слишком явные подсказки выдают её мафии.",
+      goal:"Направить город к верным изгнаниям.",
+      night:"Узнаёт сторону или роль одного выбранного игрока.",
+      tips:["Говорите намёками, а не прямо.","Запоминайте всю полученную информацию.","Берегите себя до решающего дня."]}
+  };
+
+  /* ---------- render game cards ---------- */
+  function gameCard(key,g){
+    return `<div class="frame gcard" data-go="game-detail" data-game="${key}">
+      <div class="gthumb"><svg><use href="#${g.motif}"/></svg><div class="glo"></div></div>
+      <div class="ginfo">
+        <div class="ghead"><h3>${g.title}</h3><span class="badge ${g.status}">${g.statusTxt}</span></div>
+        <div class="gr"><svg class="svgico"><use href="#i-cal"/></svg><b>${g.date}</b></div>
+        <div class="gr"><svg class="svgico"><use href="#i-clock"/></svg><b>${g.time}</b></div>
+        <div class="gr"><svg class="svgico"><use href="#i-pin"/></svg><b>${g.place}</b></div>
+        <div class="gprice">${g.price}</div>
+        <div class="gseats"><svg class="svgico"><use href="#i-users"/></svg>Свободно мест: ${g.seats}</div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('list-upcoming').innerHTML =
+    ['moon','masquerade','table','raven','crown'].map(k=>gameCard(k,GAMES[k])).join('');
+  document.getElementById('list-past').innerHTML =
+    Object.keys(PAST).map(k=>gameCard(k,PAST[k])).join('') ||
+    '<p class="intro">Пока нет завершённых игр.</p>';
+
+  /* ---------- render role cards ---------- */
+  function roleCard(key,r){
+    let dots='';for(let i=1;i<=3;i++)dots+=`<span class="d ${i<=r.diff?'on':''}"><svg><use href="#i-diamond"/></svg></span>`;
+    const dl=['','лёгкая','средняя','сложная'][r.diff];
+    return `<div class="frame rcard" data-go="role-detail" data-role="${key}">
+      <div class="rmask" style="color:${r.color}"><svg><use href="#${r.icon}"/></svg></div>
+      <div class="rbody"><h3>${r.name}</h3><p>${r.short}</p><div class="diff">${dots}<span class="dl">${dl}</span></div></div>
+      <svg class="rchev svgico"><use href="#i-chev"/></svg>
+    </div>`;
+  }
+  const byCat=k=>Object.keys(ROLES).filter(x=>ROLES[x].catKey===k).map(x=>roleCard(x,ROLES[x])).join('');
+  document.getElementById('cat-mafia').innerHTML=byCat('mafia');
+  document.getElementById('cat-third').innerHTML=byCat('third');
+  document.getElementById('cat-good').innerHTML=byCat('good');
+
+  /* ---------- achievements full ---------- */
+  const ACH=[
+    {n:"Первый круг",d:"Сыграл первую игру",i:"ach-guest",t:"v",got:1},
+    {n:"Первая победа",d:"Одержал первую победу",i:"ach-star",t:"v",got:1},
+    {n:"Свой за столом",d:"Сыграл 5 игр",i:"ach-solo",t:"v",got:1},
+    {n:"Стратег",d:"10 точных голосований",i:"ach-strategy",t:"g",got:1},
+    {n:"Ночная тень",d:"Победил за мафию",i:"ach-night",t:"b",got:1},
+    {n:"Город спит спокойно",d:"Победил за мирных",i:"ach-mind",t:"v",got:1},
+    {n:"Мастер психологии",d:"Раскрыл мафию 3 раза",i:"ach-mind",t:"v",got:1},
+    {n:"Хранитель тайн",d:"Дожил до финала 5 раз",i:"ach-key",t:"v",got:1},
+    {n:"Гость вечера",d:"Тематическая игра",i:"ach-guest",t:"v",got:1},
+    {n:"Серия пошла",d:"2 победы подряд",i:"ach-flame",t:"v",got:1},
+    {n:"Легенда клуба",d:"Высший статус клуба",i:"ach-legend",t:"g",got:1},
+    {n:"На волне",d:"3 победы подряд",i:"ach-flame",t:"v",got:0},
+    {n:"Один против всех",d:"Победа за третью сторону",i:"ach-solo",t:"v",got:0},
+    {n:"Тёмная сторона",d:"5 побед за мафию",i:"ach-night",t:"b",got:0},
+    {n:"Скрытое достижение",d:"???",i:"ach-key",t:"v",got:0,hidden:1}
+  ];
+  function achHTML(filter){
+    return ACH.filter(a=>filter==='all'||(filter==='got'&&a.got)||(filter==='lock'&&!a.got)).map(a=>{
+      const lock=a.got?'':' lock';
+      const name=(!a.got&&a.hidden)?'Скрытое':a.n;
+      const desc=(!a.got&&a.hidden)?'Откроется в игре':a.d;
+      return `<div class="achc"><div class="achi ${a.t}${lock}"><svg><use href="#${a.i}"/></svg>${a.got?'':'<svg class="locki"><use href="#i-lock"/></svg>'}</div><span>${name}<span class="desc">${desc}</span></span></div>`;
+    }).join('');
+  }
+  const achFull=document.getElementById('achFull');
+  achFull.innerHTML=achHTML('all');
+  document.getElementById('achFilter').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    document.querySelectorAll('#achFilter button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');achFull.innerHTML=achHTML(b.dataset.f);
+  });
+
+  /* ---------- rating list ---------- */
+  const RANK=[
+    {p:4,n:"Леди Вуаль",s:"71% побед · 54 игры",pts:2040},
+    {p:5,n:"Мистер Алиби",s:"66% побед · 61 игра",pts:1985},
+    {p:6,n:"Падший Туз",s:"64% побед · 48 игр",pts:1920},
+    {p:7,n:"Бледный Граф",s:"60% побед · 70 игр",pts:1888},
+    {p:26,n:"Тень у Окна",s:"63% побед · 39 игр",pts:1870},
+    {p:27,n:"Ночной Странник",s:"62% побед · 110 игр",pts:1847,me:1},
+    {p:28,n:"Серебряный Шёпот",s:"59% побед · 44 игры",pts:1820}
+  ];
+  document.getElementById('ratingList').innerHTML=RANK.map(r=>
+    `<div class="frame rk-row ${r.me?'me':''}">
+      <div class="pos">${r.p}</div>
+      <div class="rav"><svg><use href="#m-hood"/></svg></div>
+      <div class="rinfo"><div class="rn">${r.n}${r.me?'<span class="youtag">Вы</span>':''}</div><div class="rs">${r.s}</div></div>
+      <div class="rpts"><svg class="svgico"><use href="#i-diamond"/></svg>${r.pts}</div>
+    </div>`).join('');
+
+  /* ---------- navigation ---------- */
+  const screens=document.querySelectorAll('.screen');
+  const tabs=document.querySelectorAll('.tab[data-tab]');
+  const vp=document.getElementById('vp');
+  function show(id){
+    let found=false;
+    screens.forEach(s=>{const on=s.id===id;s.classList.toggle('is-active',on);if(on)found=true;});
+    if(!found)return;
+    const tabKey=document.getElementById(id).dataset.tab;
+    tabs.forEach(t=>t.classList.toggle('on',t.dataset.tab===tabKey));
+    vp.scrollTop=0;
+  }
+  document.body.addEventListener('click',e=>{
+    const el=e.target.closest('[data-go]');if(!el)return;
+    const id=el.dataset.go;
+    if(id==='game-detail')fillGame(el.dataset.game);
+    if(id==='role-detail')fillRole(el.dataset.role);
+    show(id);
+  });
+
+  /* ---------- segmented (games) ---------- */
+  document.getElementById('gamesSeg').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    document.querySelectorAll('#gamesSeg button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.getElementById('list-upcoming').classList.toggle('hide',b.dataset.list!=='upcoming');
+    document.getElementById('list-past').classList.toggle('hide',b.dataset.list!=='past');
+  });
+  document.getElementById('ratingSeg').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    document.querySelectorAll('#ratingSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  });
+
+  /* ---------- fill game detail + reset booking ---------- */
+  function fillGame(key){
+    const g=GAMES[key]||PAST[key]||GAMES.moon;
+    document.getElementById('gd-motif').firstElementChild.setAttribute('href','#'+g.motif);
+    document.getElementById('gd-title').textContent=g.title;
+    document.getElementById('gd-level').textContent=g.level;
+    document.getElementById('gd-date').textContent=g.date;
+    document.getElementById('gd-time').textContent=g.time;
+    document.getElementById('gd-place').textContent=g.place;
+    document.getElementById('gd-price').textContent=g.price;
+    document.getElementById('gd-seats').textContent=g.seats;
+    document.getElementById('gd-format').textContent=g.format;
+    document.getElementById('gd-desc').textContent=g.desc;
+    document.getElementById('bk-pay').innerHTML='<svg class="svgico"><use href="#i-ticket"/></svg>Оплатить '+g.price;
+    // ticket fields
+    document.getElementById('tk-title').textContent=g.title;
+    document.getElementById('tk-sub').textContent=g.date+' · '+g.time+' · '+g.place.replace('Клуб «','').replace('»','');
+    document.getElementById('tk-num').textContent='AM-'+Math.floor(1000+Math.random()*8999);
+    // reset states
+    resetBooking(g.status==='done');
+  }
+  function resetBooking(isDone){
+    document.getElementById('bk-initial').classList.toggle('hide',!!isDone);
+    document.getElementById('bk-booked').classList.add('hide');
+    document.getElementById('bk-paid').classList.add('hide');
+    if(isDone)document.getElementById('bk-initial').classList.add('hide');
+  }
+  document.getElementById('bk-book').addEventListener('click',()=>{
+    document.getElementById('bk-initial').classList.add('hide');
+    document.getElementById('bk-booked').classList.remove('hide');
+    document.getElementById('bk-booked').scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  document.getElementById('bk-pay').addEventListener('click',function(){
+    const b=this;b.textContent='Обработка платежа…';b.disabled=true;
+    setTimeout(()=>{
+      document.getElementById('bk-booked').classList.add('hide');
+      document.getElementById('bk-paid').classList.remove('hide');
+      document.getElementById('bk-paid').scrollIntoView({behavior:'smooth',block:'center'});
+      b.disabled=false;
+    },900);
+  });
+
+  /* ---------- fill role detail ---------- */
+  function fillRole(key){
+    const r=ROLES[key]||ROLES.don;
+    document.getElementById('rd-mask').firstElementChild.setAttribute('href','#'+r.icon);
+    document.getElementById('rd-mask').style.color=r.color;
+    document.getElementById('rd-cat').textContent=r.cat;
+    document.getElementById('rd-cat').style.color=r.color;
+    document.getElementById('rd-cat').style.background='color-mix(in srgb,'+r.color+' 14%,transparent)';
+    document.getElementById('rd-cat').style.border='1px solid color-mix(in srgb,'+r.color+' 40%,transparent)';
+    document.getElementById('rd-cat-title').textContent=r.cat;
+    document.getElementById('rd-name').textContent=r.name;
+    document.getElementById('rd-full').textContent=r.full;
+    document.getElementById('rd-goal').textContent=r.goal;
+    document.getElementById('rd-night').textContent=r.night;
+    document.getElementById('rd-night-block').style.display = r.night && !/нет/i.test(r.night) ? '' : 'none';
+    let dd='';for(let i=1;i<=3;i++)dd+=`<span class="d ${i<=r.diff?'on':''}"><svg><use href="#i-diamond"/></svg></span>`;
+    dd+=`<span class="dl">${['','лёгкая','средняя','сложная'][r.diff]}</span>`;
+    document.getElementById('rd-diff').innerHTML=dd;
+    document.getElementById('rd-tips').innerHTML=r.tips.map(t=>`<div class="tip"><svg class="svgico"><use href="#i-diamond"/></svg><span>${t}</span></div>`).join('');
+  }
+  fillRole('don'); // prime role-detail defaults
+})();
+</script>
+</body>
+</html>
