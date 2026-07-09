@@ -2301,14 +2301,14 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
      ===================================================================== */
   const ASSETS = {
     cat:    'assets/cat-mascot.png',     // чёрный кот со светящимися глазами
-    hero:   'assets/hero-ritual.png',    // зал капюшонов / фиолетовая луна
+    hero:   'assets/hero-ritual.jpg',    // зал капюшонов / фиолетовая луна
     warden: 'assets/avatar-warden.png',  // медальон «Странник»
     chest:  'assets/chest.png',          // сундук (прозрачный PNG)
     mask:   'assets/mask-masquerade.png',// маска «Маскарад»
     // ---- афиши событий (реальный арт вместо SVG-заглушек) ----
-    'ev-table':'assets/ev-castle.png',   // Теневой стол — замок под луной
-    'ev-raven':'assets/ev-raven.png',    // Зов ворона
-    'ev-crown':'assets/ev-crown.png',    // Проклятие королей
+    'ev-table':'assets/ev-castle.jpg',   // Теневой стол — замок под луной
+    'ev-raven':'assets/ev-raven.jpg',    // Зов ворона
+    'ev-crown':'assets/ev-crown.jpg',    // Проклятие королей
     // ---- арты ролей (постеры с именами) — категория «За мафию» ----
     'role-don':      'assets/role-don.jpg',
     'role-mafia':    'assets/role-mafia.jpg',
@@ -3575,7 +3575,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
      ===================================================================== */
   const MIN_PLAYERS=10;                         // порог «игре быть» → открывается оплата
   const MAX_PLAYERS=24;                         // полный стол; дальше — резерв (очередь)
-  const SIM_KEY='avemafia_sim_v2';   // v2 — старт без записей (обнулили предзапись)
+  const SIM_KEY='avemafia_sim_v3';   // v3 — старт без записей И с нулевым рейтингом (сброс старых сохранений)
   const TICKET_SECRET='ave-mafia-demo-secret';  // имитация серверного секрета подписи
   const FAKE_NAMES=['Багровый Кардинал','Леди Вуаль','Мистер Алиби','Тихий Омут','Пепельный Валет','Гроссмейстер','Полночный Гость','Серый Кот','Барон Суббота','Флориан','Госпожа Удача','Двойной Блеф','Иллюзионист','Тень у Окна','Седьмая Печать'];
   function simDefault(){
