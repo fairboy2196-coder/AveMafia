@@ -2113,14 +2113,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       </div>
 
       <div class="eyebrow with-link"><span style="display:flex;align-items:center;gap:9px"><span class="di"><svg><use href="#i-diamond"/></svg></span>Достижения</span><span class="lk" data-go="achievements">Все</span></div>
-      <div class="ach-grid">
-        <div class="achc rar-epic"><div class="achi v" style="color:var(--violet)"><svg><use href="#ach-star"/></svg></div><span>Первая победа</span></div>
-        <div class="achc rar-legend"><div class="achi g" style="color:var(--gold)"><svg><use href="#ach-strategy"/></svg></div><span>Стратег</span></div>
-        <div class="achc rar-rare"><div class="achi b" style="color:var(--blue)"><svg><use href="#ach-night"/></svg></div><span>Ночная тень</span></div>
-        <div class="achc rar-epic"><div class="achi v" style="color:var(--violet)"><svg><use href="#ach-mind"/></svg></div><span>Мастер психологии</span></div>
-        <div class="achc rar-epic"><div class="achi v" style="color:var(--violet)"><svg><use href="#ach-key"/></svg></div><span>Хранитель тайн</span></div>
-        <div class="achc rar-legend"><div class="achi g" style="color:var(--gold)"><svg><use href="#ach-legend"/></svg></div><span>Легенда клуба</span></div>
-      </div>
+      <div class="ach-grid" id="achPreview"></div>
 
       <div class="frame quote">
         <span class="qm">“</span>
@@ -2171,8 +2164,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     </div>
 
     <div class="frame ach-summary">
-      <div class="big"><b>11</b>/15</div>
-      <div class="sx"><div class="t">Получено достижений</div><div class="bar"><i style="width:73%"></i></div></div>
+      <div class="big"><b id="achGot">0</b>/<span id="achTotal">15</span></div>
+      <div class="sx"><div class="t">Получено достижений</div><div class="bar"><i id="achBar" style="width:0%"></i></div></div>
     </div>
 
     <div class="filter" id="achFilter" style="flex-wrap:wrap">
@@ -2739,40 +2732,40 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   /* ---------- achievements full ---------- */
   // r = редкость: common | rare | epic | legend
   const RAR={common:"Обычное",rare:"Редкое",epic:"Эпическое",legend:"Легендарное"};
+  // Достижения открываются АВТОМАТИЧЕСКИ по статистике игр (cond от stats игрока).
   const ACH=[
-    {n:"Первый круг",d:"Сыграл первую игру",i:"ach-guest",t:"v",r:"common",got:1},
-    {n:"Первая победа",d:"Одержал первую победу",i:"ach-star",t:"v",r:"rare",got:1},
-    {n:"Свой за столом",d:"Сыграл 5 игр",i:"ach-solo",t:"v",r:"common",got:1},
-    {n:"Стратег",d:"10 точных голосований",i:"ach-strategy",t:"g",r:"epic",got:1},
-    {n:"Ночная тень",d:"Победил за мафию",i:"ach-night",t:"b",r:"rare",got:1},
-    {n:"Город спит спокойно",d:"Победил за мирных",i:"ach-mind",t:"v",r:"rare",got:1},
-    {n:"Мастер психологии",d:"Раскрыл мафию 3 раза",i:"ach-mind",t:"v",r:"epic",got:1},
-    {n:"Хранитель тайн",d:"Дожил до финала 5 раз",i:"ach-key",t:"v",r:"epic",got:1},
-    {n:"Гость вечера",d:"Тематическая игра",i:"ach-guest",t:"v",r:"common",got:1},
-    {n:"Серия пошла",d:"2 победы подряд",i:"ach-flame",t:"v",r:"rare",got:1},
-    {n:"Легенда клуба",d:"Высший статус клуба",i:"ach-legend",t:"g",r:"legend",got:1},
-    {n:"На волне",d:"3 победы подряд",i:"ach-flame",t:"v",r:"epic",got:0},
-    {n:"Один против всех",d:"Победа за третью сторону",i:"ach-solo",t:"v",r:"epic",got:0},
-    {n:"Тёмная сторона",d:"5 побед за мафию",i:"ach-night",t:"b",r:"legend",got:0},
-    {n:"Скрытое достижение",d:"???",i:"ach-key",t:"v",r:"legend",got:0,hidden:1}
+    {n:"Первый круг",        d:"Сыграть первую игру",        i:"ach-guest", t:"v",r:"common",cond:s=>s.games>=1},
+    {n:"Первая победа",      d:"Одержать первую победу",     i:"ach-star",  t:"v",r:"rare",  cond:s=>s.wins>=1},
+    {n:"Лучший вечера",      d:"Стать лучшим игроком игры",  i:"ach-star",  t:"g",r:"rare",  cond:s=>(s.mvpTotal||0)>=1},
+    {n:"Свой за столом",     d:"Сыграть 5 игр",              i:"ach-solo",  t:"v",r:"common",cond:s=>s.games>=5},
+    {n:"Завсегдатай",        d:"Сыграть 15 игр",             i:"ach-guest", t:"v",r:"epic",  cond:s=>s.games>=15},
+    {n:"Город спит спокойно",d:"Победить за мирных",         i:"ach-mind",  t:"v",r:"rare",  cond:s=>tw(s,'good')>=1},
+    {n:"Ночная тень",        d:"Победить за мафию",          i:"ach-night", t:"b",r:"rare",  cond:s=>tw(s,'mafia')>=1},
+    {n:"Один против всех",   d:"Победить за третью сторону", i:"ach-solo",  t:"v",r:"epic",  cond:s=>tw(s,'third')>=1},
+    {n:"Серия пошла",        d:"Выиграть 2 игры подряд",     i:"ach-flame", t:"v",r:"rare",  cond:s=>(s.maxStreak||0)>=2},
+    {n:"На волне",           d:"Выиграть 3 игры подряд",     i:"ach-flame", t:"v",r:"epic",  cond:s=>(s.maxStreak||0)>=3},
+    {n:"Несокрушимый",       d:"Выиграть 5 игр подряд",      i:"ach-flame", t:"g",r:"legend",cond:s=>(s.maxStreak||0)>=5},
+    {n:"Любимец публики",    d:"3 раза стать лучшим игроком",i:"ach-mind",  t:"v",r:"epic",  cond:s=>(s.mvpTotal||0)>=3},
+    {n:"Тёмная сторона",     d:"5 побед за мафию",           i:"ach-night", t:"b",r:"legend",cond:s=>tw(s,'mafia')>=5},
+    {n:"Легенда клуба",      d:"Набрать 150 очков рейтинга", i:"ach-legend",t:"g",r:"legend",cond:s=>s.pts>=150},
+    {n:"Скрытое достижение", d:"Раскроется в игре",          i:"ach-key",   t:"v",r:"legend",cond:s=>s.wins>=10,hidden:1}
   ];
-  function achHTML(filter){
-    return ACH.filter(a=>filter==='all'||(filter==='got'&&a.got)||(filter==='lock'&&!a.got)
+  function tw(s,k){ return (s&&s.winsByTeam&&s.winsByTeam[k])||0; }   // побед за команду
+  function achHTML(filter, st){
+    return ACH.filter(a=>filter==='all'||(filter==='got'&&a.cond(st))||(filter==='lock'&&!a.cond(st))
         ||(['common','rare','epic','legend'].includes(filter)&&a.r===filter)).map(a=>{
-      const lock=a.got?'':' lock';
-      const name=(!a.got&&a.hidden)?'Скрытое':a.n;
-      const desc=(!a.got&&a.hidden)?'Откроется в игре':a.d;
-      // ART TODO[achievement badge artwork]: inner <svg> is a placeholder —
-      // swap for the real engraved badge image keyed by a.i.
-      return `<div class="achc rar-${a.r}"><div class="achi ${a.t}${lock}"><svg><use href="#${a.i}"/></svg>${a.got?'':'<svg class="locki"><use href="#i-lock"/></svg>'}</div><span>${name}<span class="desc">${desc}</span><span class="rar-pill rar-${a.r}">${RAR[a.r]}</span></span></div>`;
+      const got=a.cond(st), lock=got?'':' lock';
+      const name=(!got&&a.hidden)?'Скрытое':a.n;
+      const desc=(!got&&a.hidden)?'Откроется в игре':a.d;
+      return `<div class="achc rar-${a.r}"><div class="achi ${a.t}${lock}"><svg><use href="#${a.i}"/></svg>${got?'':'<svg class="locki"><use href="#i-lock"/></svg>'}</div><span>${name}<span class="desc">${desc}</span><span class="rar-pill rar-${a.r}">${RAR[a.r]}</span></span></div>`;
     }).join('');
   }
   const achFull=document.getElementById('achFull');
-  achFull.innerHTML=achHTML('all');
+  let achFilterCur='all';
   document.getElementById('achFilter').addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;
     document.querySelectorAll('#achFilter button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');achFull.innerHTML=achHTML(b.dataset.f);
+    b.classList.add('on'); achFilterCur=b.dataset.f; achFull.innerHTML=achHTML(achFilterCur, seedMe());
   });
 
   /* ---------- rating list ---------- */
@@ -2800,8 +2793,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(id==='scanner')renderScanner();
     if(id==='host')renderHost();
     if(id==='admin')renderAdmin();
-    if(id==='profile')renderProfileStats();
+    if(id==='profile'){ renderProfileStats(); renderAch(); renderAvatars(); }
     if(id==='rating')renderRating();
+    if(id==='achievements')renderAch();
     closeSheet();             // close menu / notifications if open
     catLeap(el);              // cat leaps onto the pressed control and dissolves
     show(id);
@@ -3420,32 +3414,35 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   /* =====================================================================
      АВАТАРКИ — коллекция (открываются за достижения / покупаются)
      ===================================================================== */
-  // unlocked: открыта | cost: цена покупки | need: условие достижения
+  // free: базовая (даётся сразу) | needAch: открыть за достижение | cost: купить.
+  // Всё, кроме базовой «Странник», заблокировано и открывается по достижениям/покупке.
   const AVATARS=[
-    {id:"hood",     name:"Странник",     art:"m-hood",  img:"warden",        rar:"legend", unlocked:true, active:true},
-    {id:"mask",     name:"Маска",        art:"m-mask",  img:"mask",          rar:"epic",   unlocked:true},
-    {id:"cat",      name:"Чёрный кот",   art:"m-cat",   img:"cat",           rar:"epic",   unlocked:true},
-    {id:"raven",    name:"Ворон",        art:"m-raven", img:"avatar-raven",  rar:"rare",   unlocked:true},
-    {id:"dracula",  name:"Дракула",      art:"r-raven", img:"av-dracula",    rar:"epic",   unlocked:true},
-    {id:"joker",    name:"Джокер",       art:"r-jester",img:"av-joker",      rar:"rare",   unlocked:false, need:"Открой за достижение «Один против всех»"},
-    {id:"medusa",   name:"Медуза",       art:"r-seer",  img:"av-medusa",     rar:"epic",   unlocked:false, need:"Открой за достижение «Мастер психологии»"},
-    {id:"collector",name:"Коллекционер", art:"r-jester",img:"av-collector",  rar:"legend", unlocked:false, cost:"450"},
-    {id:"wolf",     name:"Оборотень",    art:"r-wolf",  img:"av-wolf",       rar:"legend", unlocked:false, cost:"600"}
+    {id:"hood",     name:"Странник",     art:"m-hood",  img:"warden",        rar:"common", free:true, active:true},
+    {id:"mask",     name:"Маска",        art:"m-mask",  img:"mask",          rar:"epic",   needAch:"Первая победа"},
+    {id:"cat",      name:"Чёрный кот",   art:"m-cat",   img:"cat",           rar:"epic",   needAch:"Свой за столом"},
+    {id:"raven",    name:"Ворон",        art:"m-raven", img:"avatar-raven",  rar:"rare",   needAch:"Ночная тень"},
+    {id:"dracula",  name:"Дракула",      art:"r-raven", img:"av-dracula",    rar:"epic",   needAch:"Один против всех"},
+    {id:"joker",    name:"Джокер",       art:"r-jester",img:"av-joker",      rar:"rare",   needAch:"На волне"},
+    {id:"medusa",   name:"Медуза",       art:"r-seer",  img:"av-medusa",     rar:"epic",   needAch:"Любимец публики"},
+    {id:"collector",name:"Коллекционер", art:"r-jester",img:"av-collector",  rar:"legend", needAch:"Завсегдатай", cost:"450"},
+    {id:"wolf",     name:"Оборотень",    art:"r-wolf",  img:"av-wolf",       rar:"legend", needAch:"Тёмная сторона", cost:"600"}
   ];
   const RAR_LABEL={common:"Обычная",rare:"Редкая",epic:"Эпическая",legend:"Легендарная"};
+  // Аватарка открыта, если базовая, куплена (SIM.avatars) или заработано её достижение.
+  function avUnlocked(a){ return !!(a.free || (SIM.avatars&&SIM.avatars.indexOf(a.id)>=0) || (a.needAch&&achEarned(a.needAch))); }
   function renderAvatars(){
     $('avGrid').innerHTML=AVATARS.map(a=>{
+      const unlocked=avUnlocked(a);
       let badge='';
-      if(a.active)badge='<span class="av-active-tag"><svg class="svgico"><use href="#i-check"/></svg>Активна</span>';
+      if(a.active&&unlocked)badge='<span class="av-active-tag"><svg class="svgico"><use href="#i-check"/></svg>Активна</span>';
       let overlay='';
-      if(!a.unlocked){
-        overlay=a.cost
-          ? `<div class="av-lockwrap"><svg class="svgico"><use href="#i-lock"/></svg></div><span class="av-cost"><svg class="svgico"><use href="#i-diamond"/></svg>${a.cost}</span>`
-          : `<div class="av-lockwrap"><svg class="svgico"><use href="#i-lock"/></svg></div><span class="av-need">${a.need||'Откроется за достижение'}</span>`;
+      if(!unlocked){
+        const need = a.needAch ? ('Открой: «'+a.needAch+'»') : 'Откроется за достижение';
+        overlay='<div class="av-lockwrap"><svg class="svgico"><use href="#i-lock"/></svg></div>'+
+          (a.cost?'<span class="av-cost"><svg class="svgico"><use href="#i-diamond"/></svg>'+a.cost+'</span>':'')+
+          '<span class="av-need">'+need+'</span>';
       }
-      // ART TODO[avatar artwork]: <svg class="art"> is a placeholder motif —
-      // swap for the real per-avatar portrait image keyed by a.art.
-      return `<div class="av-card rar-${a.rar} ${a.unlocked?'':'locked'} ${a.active?'active':''}" data-av="${a.id}">
+      return `<div class="av-card rar-${a.rar} ${unlocked?'':'locked'} ${(a.active&&unlocked)?'active':''}" data-av="${a.id}">
         <div class="av-port rar-${a.rar}"><svg class="art"><use href="#${a.art}"/></svg>${assetImgHTML(a.img)}${badge}${overlay}</div>
         <span class="av-rname">${a.name}</span>
         <span class="av-rrar">${RAR_LABEL[a.rar]}</span>
@@ -3454,7 +3451,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     hydrateArt($('avGrid'));            // проставить .has-art для кэшированных картинок сразу
   }
   function setActiveAvatar(id){
-    const a=AVATARS.find(x=>x.id===id);if(!a||!a.unlocked)return;
+    const a=AVATARS.find(x=>x.id===id);if(!a||!avUnlocked(a))return;
     AVATARS.forEach(x=>x.active=false);a.active=true;
     sendToBackend('set-avatar',{avatar:id,tgId:ME.id});
     // hero + публичный портрет профиля (его видят другие игроки)
@@ -3476,15 +3473,15 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   $('avGrid').addEventListener('click',e=>{
     const card=e.target.closest('[data-av]');if(!card)return;
     const a=AVATARS.find(x=>x.id===card.dataset.av);if(!a)return;
-    if(a.unlocked){ setActiveAvatar(a.id); return; }
+    if(avUnlocked(a)){ setActiveAvatar(a.id); renderAvatars(); return; }
     if(a.cost){
       processPayment({title:'Покупка аватарки «'+a.name+'»',amount:a.cost+' ₽',kind:'avatar',
-        onSuccess:()=>{a.unlocked=true;setActiveAvatar(a.id);}});
+        onSuccess:()=>{ if(!SIM.avatars)SIM.avatars=[]; SIM.avatars.push(a.id); saveSim(); setActiveAvatar(a.id); renderAvatars(); }});
     }else{
-      toast(a.need||'Откроется за достижение','i-lock');
+      toast(a.needAch?('Открой за достижение «'+a.needAch+'»'):'Откроется за достижение','i-lock');
     }
   });
-  renderAvatars();
+  // renderAvatars() вызывается из init (после инициализации SIM) и при заходе в профиль.
 
 
   /* =====================================================================
@@ -3582,7 +3579,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const games={};
     // Старт без записей — каждая игра начинается с пустой предзаписи.
     Object.keys(GAMES).forEach(k=>{ games[k]={players:[]}; });
-    return {games,tickets:[]};
+    return {games,tickets:[],avatars:[]};
   }
   let SIM=loadSim();
   function loadSim(){ try{const s=JSON.parse(localStorage.getItem(SIM_KEY));if(s&&s.games)return s;}catch(e){} return simDefault(); }
@@ -3797,12 +3794,14 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function statMonthKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1); }
   function ensureStats(){ if(!SIM.stats)SIM.stats={}; if(!SIM.statMonth)SIM.statMonth=statMonthKey();
     if(SIM.statMonth!==statMonthKey()){ SIM.statMonth=statMonthKey(); Object.keys(SIM.stats).forEach(k=>{SIM.stats[k].monthGames=0;SIM.stats[k].monthMvp=0;}); } }
-  function pstat(id,name){ ensureStats(); if(!SIM.stats[id])SIM.stats[id]={name:name||'Игрок',pts:0,wins:0,losses:0,games:0,streak:0,mvpTotal:0,monthGames:0,monthMvp:0}; if(name)SIM.stats[id].name=name; return SIM.stats[id]; }
+  function pstat(id,name){ ensureStats(); if(!SIM.stats[id])SIM.stats[id]={name:name||'Игрок',pts:0,wins:0,losses:0,games:0,streak:0,maxStreak:0,winsByTeam:{mafia:0,good:0,third:0},mvpTotal:0,monthGames:0,monthMvp:0}; const s=SIM.stats[id]; if(!s.winsByTeam)s.winsByTeam={mafia:0,good:0,third:0}; if(s.maxStreak==null)s.maxStreak=0; if(name)s.name=name; return s; }
   function winrate(s){ return s.games?Math.round(s.wins/s.games*100):0; }
 
   /* ---------- привязка рейтинга к Профилю и экрану Рейтинг ---------- */
   // Новый игрок стартует с НУЛЯ (рейтинг и игры). Баллы копятся по мере игр.
-  function seedMe(){ ensureStats(); if(!SIM.stats[ME.id]){ SIM.stats[ME.id]={name:ME.first_name,pts:0,wins:0,losses:0,games:0,streak:0,mvpTotal:0,monthGames:0,monthMvp:0}; saveSim(); } return SIM.stats[ME.id]; }
+  function seedMe(){ return pstat(ME.id, ME.first_name); }   // новый игрок = все нули (см. pstat)
+  // Достижение засчитано, если его условие выполнено по статистике игрока.
+  function achEarned(name){ const a=(typeof ACH!=='undefined')&&ACH.find(function(x){return x.n===name;}); return a?!!a.cond(seedMe()):false; }
   // Все сыгравшие игроки (games>0), отсортированные по очкам — это и есть общий рейтинг.
   function allRanked(){ ensureStats(); return Object.keys(SIM.stats).map(function(id){ return {id:isNaN(+id)?id:+id, s:SIM.stats[id]}; }).filter(function(x){ return x.s.games>0; }).sort(function(a,b){ return (b.s.pts-a.s.pts) || (b.s.wins-a.s.wins); }); }
   function myPlace(){ const r=allRanked(); const i=r.findIndex(function(x){ return x.id===ME.id; }); return i>=0 ? i+1 : null; }
@@ -3816,6 +3815,19 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     setTxt('pf-wins', s.wins);
     setTxt('pf-losses', s.losses);
   }
+  // Достижения: полный список + превью в профиле — из живой статистики игрока.
+  function renderAch(){ const st=seedMe(); if(achFull)achFull.innerHTML=achHTML(achFilterCur, st); renderAchPreview(st);
+    const got=ACH.filter(function(a){return a.cond(st);}).length;
+    setTxt('achGot', got); setTxt('achTotal', ACH.length);
+    const bar=$('achBar'); if(bar)bar.style.width=Math.round(got/ACH.length*100)+'%';
+  }
+  function renderAchPreview(st){ const box=$('achPreview'); if(!box)return;
+    box.innerHTML=ACH.slice(0,6).map(function(a){ const got=a.cond(st); const name=(!got&&a.hidden)?'Скрытое':a.n;
+      return '<div class="achc rar-'+a.r+'"><div class="achi '+a.t+(got?'':' lock')+'"><svg><use href="#'+a.i+'"/></svg>'+(got?'':'<svg class="locki"><use href="#i-lock"/></svg>')+'</div><span>'+escH(name)+'</span></div>';
+    }).join('');
+  }
+  // Обновить все «прогресс»-экраны разом (профиль, рейтинг, достижения, аватарки).
+  function refreshProgress(){ renderProfileStats(); renderRating(); renderAch(); renderAvatars(); }
   function podCell(rankNum, e, cls){
     if(!e) return '<div class="pod '+cls+' empty"></div>';
     const me=e.id===ME.id, nm=me?ME.first_name:e.s.name;
@@ -3924,7 +3936,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const deltas={};
     pres.forEach(id=>{ const s=pstat(id,id===ME.id?ME.first_name:nameOf(id)); const won=roleTeam(HOST.roles[id])===winTeam;
       s.games++; s.monthGames++; const tags=[];
-      if(won){ s.wins++; s.pts+=RP.win; s.streak++; if(s.streak%3===0){s.pts+=RP.streak3;tags.push('серия 3 · +'+RP.streak3);} }
+      if(won){ s.wins++; s.pts+=RP.win; s.streak++; if(s.streak>s.maxStreak)s.maxStreak=s.streak; if(s.winsByTeam[winTeam]!=null)s.winsByTeam[winTeam]++; if(s.streak%3===0){s.pts+=RP.streak3;tags.push('серия 3 · +'+RP.streak3);} }
       else { s.losses++; s.streak=0; s.pts+=RP.loss; }
       if(s.monthGames===5){ s.pts+=RP.attend5; tags.push('5 игр/мес · +'+RP.attend5); }
       deltas[id]={won,tags};
@@ -3933,7 +3945,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     Object.keys(SIM.stats).forEach(k=>{ if(SIM.stats[k].pts<0)SIM.stats[k].pts=0; });
     saveSim();
     HOST._summary=hostSummaryHTML(pres,winTeam,mvp,deltas); HOST.phase='done'; renderHostStep();
-    renderProfileStats(); renderRating();   // обновляем профиль и рейтинг после игры
+    refreshProgress();   // после игры обновляем профиль, рейтинг, достижения и аватарки
   }
   function hostSummaryHTML(pres,winTeam,mvp,deltas){
     const mvpName=mvp!=null?(mvp===ME.id?ME.first_name+' (вы)':nameOf(mvp)):'—';
@@ -3966,7 +3978,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     hb.addEventListener('change',e=>{ const r=e.target.closest('[data-hrole]'); if(r){ const id=+r.dataset.hrole; if(r.value)HOST.roles[id]=r.value; else delete HOST.roles[id]; renderHostStep(); } });
   })();
 
-  renderProfileStats(); renderRating();   // живой рейтинг в профиле и на экране рейтинга
+  refreshProgress();   // старт: профиль, рейтинг, достижения, аватарки из живых данных
   applyAssets();   // wire all static data-asset slots (header cat, hero, portraits, podium, rating)
   catLook('home'); // prime cat gaze
 })();
