@@ -699,6 +699,35 @@ body.style-winter .bar i{
 .winwrap .wf b{color:var(--ghost)}
 .fav{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:10px}
 .favc{text-align:center;cursor:pointer;position:relative}
+/* пустой слот / кнопка «Добавить» любимую роль */
+.favc.favadd{border:0;background:none;font:inherit;color:var(--mist);padding:0}
+.favi-add{width:100%;aspect-ratio:4/5;border-radius:16px;display:grid;place-items:center;font-size:34px;font-weight:300;
+  color:var(--mist);border:1.5px dashed var(--line-2);background:rgba(255,255,255,.02)}
+.favc.favadd:hover .favi-add{color:var(--ghost);border-color:var(--violet)}
+.fav-empty{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  padding:16px;border-radius:16px;border:1.5px dashed var(--line-2);background:rgba(255,255,255,.02);
+  color:var(--mist);font:inherit;font-size:13.5px;cursor:pointer}
+.fav-empty:hover{color:var(--ghost);border-color:var(--violet)}
+.fav-empty .svgico{width:18px;height:18px;color:var(--violet)}
+/* ---- модалка выбора любимых ролей ---- */
+.rp-head{text-align:center;margin-bottom:6px}
+.rp-head h3{margin:0}
+.rp-head p{margin:4px 0 0;color:var(--mist);font-size:12.5px}
+.rp-body{max-height:56vh;overflow-y:auto;margin:12px -6px 4px;padding:0 6px;text-align:left}
+.rp-team{font-family:"Forum",serif;letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:var(--gold);margin:12px 2px 8px}
+.rp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rp-role{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 5px;border-radius:12px;
+  border:1px solid var(--line);background:rgba(255,255,255,.02);color:var(--ghost);font:inherit;cursor:pointer;transition:.16s}
+.rp-role:hover{border-color:var(--line-2)}
+.rp-role.on{border-color:var(--rc,var(--violet));box-shadow:0 0 0 1px var(--rc,var(--violet)),0 0 18px -8px var(--rc,var(--violet))}
+.rp-ico{width:44px;height:44px;border-radius:10px;overflow:hidden;position:relative;display:grid;place-items:center;color:var(--rc,var(--violet));
+  background:linear-gradient(160deg,#1a1340,#0e0a24)}
+.rp-ico svg{width:24px;height:24px}
+.rp-ico .art-asset{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.rp-name{font-size:11px;line-height:1.15;color:var(--mist)}
+.rp-role.on .rp-name{color:var(--ghost)}
+.rp-check{position:absolute;top:5px;right:5px;width:15px;height:15px;color:var(--good);opacity:0;transition:.16s}
+.rp-role.on .rp-check{opacity:1}
 /* ---- animated BRILLIANT (ice-diamond) frame — favorites + role portrait ---- */
 @property --fang{syntax:'<angle>';inherits:false;initial-value:0deg}
 .favi{width:100%;aspect-ratio:4/5;border-radius:16px;display:grid;place-items:center;position:relative;overflow:hidden;transition:.22s;
@@ -2079,7 +2108,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     <div class="pf-avatar">
       <div class="pf-ring"><svg><use href="#laurel-ring"/></svg></div>
       <div class="pf-portrait" data-asset="warden"><svg><use href="#m-hood"/></svg></div>
-      <div class="pf-lvl">23</div>
+      <div class="pf-lvl" id="pf-lvl">1</div>
     </div>
     <h2 class="pf-name">Ночной Странник</h2>
     <div class="pf-status"><span class="ln"></span>Член клуба<span class="ln r"></span></div>
@@ -2106,11 +2135,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       </div>
 
       <div class="eyebrow"><span class="di"><svg><use href="#i-diamond"/></svg></span>Любимые роли</div>
-      <div class="fav">
-        <div class="favc" data-go="role-detail" data-role="don"><div class="favi" data-asset="role-don" style="color:var(--mafia)"><svg><use href="#r-mafia"/></svg></div><i class="fav-gem"><svg><use href="#i-diamond"/></svg></i><span>Дон</span></div>
-        <div class="favc" data-go="role-detail" data-role="medusa"><div class="favi" data-asset="role-medusa" style="color:var(--mafia)"><svg><use href="#r-seer"/></svg></div><i class="fav-gem"><svg><use href="#i-diamond"/></svg></i><span>Медуза</span></div>
-        <div class="favc" data-go="role-detail" data-role="dracula"><div class="favi" data-asset="role-dracula" style="color:var(--third)"><svg><use href="#r-raven"/></svg></div><i class="fav-gem"><svg><use href="#i-diamond"/></svg></i><span>Дракула</span></div>
-      </div>
+      <!-- Игрок сам выбирает любимые роли (до 3) из всего каталога — рендерится из JS. -->
+      <div class="fav" id="favRoles"></div>
 
       <div class="eyebrow with-link"><span style="display:flex;align-items:center;gap:9px"><span class="di"><svg><use href="#i-diamond"/></svg></span>Достижения</span><span class="lk" data-go="achievements">Все</span></div>
       <div class="ach-grid" id="achPreview"></div>
@@ -3579,7 +3605,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const games={};
     // Старт без записей — каждая игра начинается с пустой предзаписи.
     Object.keys(GAMES).forEach(k=>{ games[k]={players:[]}; });
-    return {games,tickets:[],avatars:[]};
+    return {games,tickets:[],avatars:[],favRoles:[]};
   }
   let SIM=loadSim();
   function loadSim(){ try{const s=JSON.parse(localStorage.getItem(SIM_KEY));if(s&&s.games)return s;}catch(e){} return simDefault(); }
@@ -3814,6 +3840,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const bar=$('pf-wbar'); if(bar)bar.style.width=wr+'%';
     setTxt('pf-wins', s.wins);
     setTxt('pf-losses', s.losses);
+    setTxt('pf-lvl', 1+Math.floor(s.games/3));   // уровень: новичок = 1, +1 за каждые 3 игры
   }
   // Достижения: полный список + превью в профиле — из живой статистики игрока.
   function renderAch(){ const st=seedMe(); if(achFull)achFull.innerHTML=achHTML(achFilterCur, st); renderAchPreview(st);
@@ -3826,8 +3853,41 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       return '<div class="achc rar-'+a.r+'"><div class="achi '+a.t+(got?'':' lock')+'"><svg><use href="#'+a.i+'"/></svg>'+(got?'':'<svg class="locki"><use href="#i-lock"/></svg>')+'</div><span>'+escH(name)+'</span></div>';
     }).join('');
   }
-  // Обновить все «прогресс»-экраны разом (профиль, рейтинг, достижения, аватарки).
-  function refreshProgress(){ renderProfileStats(); renderRating(); renderAch(); renderAvatars(); }
+  /* ---------- любимые роли: игрок выбирает сам (до 3) из всего каталога ---------- */
+  function favRolesArr(){ if(!SIM.favRoles)SIM.favRoles=[]; return SIM.favRoles; }
+  function renderFavRoles(){
+    const box=$('favRoles'); if(!box)return;
+    const arr=favRolesArr().filter(function(k){return ROLES[k];});
+    if(!arr.length){ box.innerHTML='<button class="fav-empty" data-favpick><svg class="svgico"><use href="#i-diamond-o"/></svg>Выберите роли, за которые любите играть</button>'; return; }
+    let html=arr.map(function(k){ const r=ROLES[k];
+      return '<div class="favc" data-fav="'+k+'"><div class="favi" data-asset="'+r.img+'" style="color:'+r.color+'"><svg><use href="#'+r.icon+'"/></svg></div><i class="fav-gem"><svg><use href="#i-diamond"/></svg></i><span>'+escH(r.name)+'</span></div>';
+    }).join('');
+    if(arr.length<3){ html+='<button class="favc favadd" data-favpick><div class="favi favi-add">+</div><span>Добавить</span></button>'; }
+    box.innerHTML=html; try{hydrateArt(box);}catch(e){}
+  }
+  function openRolePicker(){
+    const teams=[['mafia','Мафия'],['good','Мирные'],['third','Третья сторона']];
+    let body='';
+    teams.forEach(function(t){
+      const keys=Object.keys(ROLES).filter(function(k){return ROLES[k].catKey===t[0];});
+      body+='<div class="rp-team">'+t[1]+'</div><div class="rp-grid">'+keys.map(function(k){
+        const r=ROLES[k], on=favRolesArr().indexOf(k)>=0;
+        return '<button class="rp-role'+(on?' on':'')+'" data-pickrole="'+k+'" style="--rc:'+r.color+'"><span class="rp-ico"><svg><use href="#'+r.icon+'"/></svg>'+assetImgHTML(r.img)+'</span><span class="rp-name">'+escH(r.name)+'</span><svg class="rp-check svgico"><use href="#i-check"/></svg></button>';
+      }).join('')+'</div>';
+    });
+    openModal('<div class="rp-head"><h3>Любимые роли</h3><p>Отметьте до 3 ролей, за которые любите играть.</p></div><div class="rp-body">'+body+'</div><div class="modal-actions"><button class="btn btn-primary" data-modal-close>Готово</button></div>');
+    try{hydrateArt(modalCard);}catch(e){}
+    modalCard.querySelectorAll('[data-pickrole]').forEach(function(b){ b.addEventListener('click',function(){
+      const k=b.dataset.pickrole, arr=favRolesArr(), i=arr.indexOf(k);
+      if(i>=0){ arr.splice(i,1); b.classList.remove('on'); }
+      else { if(arr.length>=3){ toast('Можно выбрать максимум 3 роли','i-info'); return; } arr.push(k); b.classList.add('on'); }
+      saveSim(); renderFavRoles();
+    }); });
+  }
+  $('favRoles') && $('favRoles').addEventListener('click',function(e){ if(e.target.closest('[data-favpick],[data-fav]')) openRolePicker(); });
+
+  // Обновить все «прогресс»-экраны разом (профиль, рейтинг, достижения, аватарки, любимые роли).
+  function refreshProgress(){ renderProfileStats(); renderRating(); renderAch(); renderAvatars(); renderFavRoles(); }
   function podCell(rankNum, e, cls){
     if(!e) return '<div class="pod '+cls+' empty"></div>';
     const me=e.id===ME.id, nm=me?ME.first_name:e.s.name;
