@@ -788,7 +788,12 @@ body.style-winter .bar i{
 
 /* ============================================================ rating screen */
 .podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:8px;align-items:end;margin:10px 0 4px}
+.podium:empty{display:none}
 .pod{display:flex;flex-direction:column;align-items:center}
+.pod.empty{visibility:hidden}
+.rk-empty{display:flex;gap:12px;align-items:center;padding:20px 18px;border-radius:16px;border:1px dashed var(--line-2);
+  background:rgba(255,255,255,.02);color:var(--mist);font-size:13.5px;line-height:1.45}
+.rk-empty .svgico{width:26px;height:26px;flex:0 0 auto;color:var(--gold);opacity:.7}
 .pod .pav{border-radius:50%;overflow:hidden;position:relative;border:2px solid var(--line-2);
   background:radial-gradient(120% 100% at 50% 8%,rgba(122,71,230,.4),transparent),linear-gradient(180deg,#1a1340,#0c0921)}
 .pod .pav svg{position:absolute;inset:0;width:100%;height:100%}
@@ -1420,6 +1425,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
           <button type="button" class="occ" data-occ="Медицина">Медицина</button>
           <button type="button" class="occ" data-occ="Другое">Другое</button>
         </div>
+        <input type="text" id="rOccOther" class="auth-occ-other" placeholder="Напишите ваш вид деятельности" autocomplete="off" style="display:none;margin-top:10px">
       </div>
       <div class="auth-err" id="profErr"></div>
       <button class="btn btn-primary auth-btn" id="authFinish"><svg class="svgico"><use href="#i-check"/></svg>Завершить регистрацию</button>
@@ -2194,27 +2200,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button>Сезон</button>
     </div>
 
-    <div class="podium">
-      <div class="pod second">
-        <div class="pav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>
-        <div class="pn">Серый<br>Кардинал</div>
-        <div class="pp"><svg class="svgico"><use href="#i-diamond"/></svg>2310</div>
-        <div class="rank">2</div>
-      </div>
-      <div class="pod first">
-        <div class="crown"><svg viewBox="0 0 24 24"><use href="#i-crown"/></svg></div>
-        <div class="pav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>
-        <div class="pn">Госпожа<br>Полночь</div>
-        <div class="pp"><svg class="svgico"><use href="#i-diamond"/></svg>2680</div>
-        <div class="rank">1</div>
-      </div>
-      <div class="pod third">
-        <div class="pav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>
-        <div class="pn">Тихий<br>Шёпот</div>
-        <div class="pp"><svg class="svgico"><use href="#i-diamond"/></svg>2155</div>
-        <div class="rank">3</div>
-      </div>
-    </div>
+    <!-- Подиум и список рейтинга строятся из живых данных (SIM.stats): только
+         те, кто реально сыграл. Пока никто не играл — рейтинг пуст. -->
+    <div class="podium" id="ratingPodium"></div>
 
     <div style="margin-top:14px" id="ratingList"></div>
   </section>
@@ -2788,22 +2776,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   });
 
   /* ---------- rating list ---------- */
-  const RANK=[
-    {p:4,n:"Леди Вуаль",s:"71% побед · 54 игры",pts:2040},
-    {p:5,n:"Мистер Алиби",s:"66% побед · 61 игра",pts:1985},
-    {p:6,n:"Падший Туз",s:"64% побед · 48 игр",pts:1920},
-    {p:7,n:"Бледный Граф",s:"60% побед · 70 игр",pts:1888},
-    {p:26,n:"Тень у Окна",s:"63% побед · 39 игр",pts:1870},
-    {p:27,n:"Ночной Странник",s:"62% побед · 110 игр",pts:1847,me:1},
-    {p:28,n:"Серебряный Шёпот",s:"59% побед · 44 игры",pts:1820}
-  ];
-  document.getElementById('ratingList').innerHTML=RANK.map(r=>
-    `<div class="frame rk-row ${r.me?'me':''}">
-      <div class="pos">${r.p}</div>
-      <div class="rav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>
-      <div class="rinfo"><div class="rn">${r.n}${r.me?'<span class="youtag">Вы</span>':''}</div><div class="rs">${r.s}</div></div>
-      <div class="rpts"><svg class="svgico"><use href="#i-diamond"/></svg>${r.pts}</div>
-    </div>`).join('');
+  // Рейтинг (подиум + список) рендерится функцией renderRating() из живых
+  // данных SIM.stats — при загрузке и после каждой сыгранной игры.
 
   /* ---------- navigation ---------- */
   const screens=document.querySelectorAll('.screen');
@@ -3290,15 +3264,23 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       reg.method='phone'; reg.phone='+'+ph; reg.pass=p1; show('profile');
     });
     $('rOcc').addEventListener('click',e=>{ const b=e.target.closest('.occ'); if(!b)return;
-      $('rOcc').querySelectorAll('.occ').forEach(o=>o.classList.toggle('on',o===b)); reg.occ=b.dataset.occ; });
+      $('rOcc').querySelectorAll('.occ').forEach(o=>o.classList.toggle('on',o===b));
+      const other=$('rOccOther');
+      if(b.dataset.occ==='Другое'){ if(other){ other.style.display='block'; other.focus(); reg.occ=other.value.trim(); } }
+      else { reg.occ=b.dataset.occ; if(other){ other.style.display='none'; } }
+    });
+    $('rOccOther') && $('rOccOther').addEventListener('input',function(){ reg.occ=this.value.trim(); });
     function finish(mode){
       if(mode!=='login'){
         const err=$('profErr'); err.textContent='';
         reg.first=$('rFirst').value.trim(); reg.last=$('rLast').value.trim();
         if(!reg.first){ err.textContent='Укажите имя.'; return; }
-        if(!reg.occ){ err.textContent='Выберите вид деятельности.'; return; }
+        const otherOn=$('rOcc').querySelector('.occ.on')&&$('rOcc').querySelector('.occ.on').dataset.occ==='Другое';
+        if(!reg.occ){ err.textContent= otherOn ? 'Напишите ваш вид деятельности.' : 'Выберите вид деятельности.'; return; }
       }
       sendToBackend('register',{ method:reg.method||'login', phone:reg.phone, first:reg.first, last:reg.last, occupation:reg.occ, tgId:ME.id });
+      // Профиль игрока сохраняем локально (для будущего просмотра владельцем через backend).
+      try{ localStorage.setItem('avemafia_profile', JSON.stringify({first:reg.first,last:reg.last,occupation:reg.occ,phone:reg.phone,method:reg.method})); }catch(e){}
       try{ localStorage.setItem(STORE,'1'); }catch(e){}
       auth.classList.add('done'); auth.setAttribute('aria-hidden','true');
       toast(reg.first ? ('Добро пожаловать, '+reg.first+'!') : 'С возвращением!','i-check');
@@ -3819,31 +3801,51 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function winrate(s){ return s.games?Math.round(s.wins/s.games*100):0; }
 
   /* ---------- привязка рейтинга к Профилю и экрану Рейтинг ---------- */
-  // Стартовая статистика владельца профиля (та, что была в макете), чтобы
-  // профиль не был пустым; игры в режиме ведущего добавляются поверх.
-  function seedMe(){ ensureStats(); if(!SIM.stats[ME.id]){ SIM.stats[ME.id]={name:ME.first_name,pts:1847,wins:68,losses:42,games:110,streak:0,mvpTotal:0,monthGames:0,monthMvp:0}; saveSim(); } return SIM.stats[ME.id]; }
-  // Место в рейтинге по очкам относительно известного «окна» ладдера RANK.
-  function myPlace(pts){ const above=RANK.filter(r=>!r.me&&r.pts>pts); if(!above.length)return Math.max(1,Math.min.apply(null,RANK.map(r=>r.p))-1); above.sort((a,b)=>a.pts-b.pts); return above[0].p+1; }
+  // Новый игрок стартует с НУЛЯ (рейтинг и игры). Баллы копятся по мере игр.
+  function seedMe(){ ensureStats(); if(!SIM.stats[ME.id]){ SIM.stats[ME.id]={name:ME.first_name,pts:0,wins:0,losses:0,games:0,streak:0,mvpTotal:0,monthGames:0,monthMvp:0}; saveSim(); } return SIM.stats[ME.id]; }
+  // Все сыгравшие игроки (games>0), отсортированные по очкам — это и есть общий рейтинг.
+  function allRanked(){ ensureStats(); return Object.keys(SIM.stats).map(function(id){ return {id:isNaN(+id)?id:+id, s:SIM.stats[id]}; }).filter(function(x){ return x.s.games>0; }).sort(function(a,b){ return (b.s.pts-a.s.pts) || (b.s.wins-a.s.wins); }); }
+  function myPlace(){ const r=allRanked(); const i=r.findIndex(function(x){ return x.id===ME.id; }); return i>=0 ? i+1 : null; }
   function setTxt(id,v){ const el=$(id); if(el)el.textContent=v; }
   function renderProfileStats(){
-    const s=seedMe(); const wr=winrate(s);
+    const s=seedMe(); const wr=winrate(s); const p=myPlace();
     setTxt('pf-rating', s.pts);
-    setTxt('pf-place', '#'+myPlace(s.pts));
+    setTxt('pf-place', p!=null ? ('#'+p) : '—');
     setTxt('pf-wp', wr+'%');
     const bar=$('pf-wbar'); if(bar)bar.style.width=wr+'%';
     setTxt('pf-wins', s.wins);
     setTxt('pf-losses', s.losses);
   }
+  function podCell(rankNum, e, cls){
+    if(!e) return '<div class="pod '+cls+' empty"></div>';
+    const me=e.id===ME.id, nm=me?ME.first_name:e.s.name;
+    return '<div class="pod '+cls+'">'+(cls==='first'?'<div class="crown"><svg viewBox="0 0 24 24"><use href="#i-crown"/></svg></div>':'')+
+      '<div class="pav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>'+
+      '<div class="pn">'+escH(nm)+(me?' <span class="youtag">Вы</span>':'')+'</div>'+
+      '<div class="pp"><svg class="svgico"><use href="#i-diamond"/></svg>'+e.s.pts+'</div>'+
+      '<div class="rank">'+rankNum+'</div></div>';
+  }
   function renderRating(){
-    const box=$('ratingList'); if(!box)return; const s=seedMe();
-    // подменяем строку «Вы» живой статистикой и пересортируем окно по очкам
-    const rows=RANK.map(r=> r.me ? {p:myPlace(s.pts),n:ME.first_name,s:winrate(s)+'% побед · '+s.games+' игр',pts:s.pts,me:1} : r)
-                   .sort((a,b)=>b.pts-a.pts);
-    box.innerHTML=rows.map(r=>
-      '<div class="frame rk-row '+(r.me?'me':'')+'"><div class="pos">'+r.p+'</div>'+
-      '<div class="rav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>'+
-      '<div class="rinfo"><div class="rn">'+escH(r.n)+(r.me?'<span class="youtag">Вы</span>':'')+'</div><div class="rs">'+escH(r.s)+'</div></div>'+
-      '<div class="rpts"><svg class="svgico"><use href="#i-diamond"/></svg>'+r.pts+'</div></div>').join('');
+    seedMe();
+    const ranked=allRanked();
+    const pod=$('ratingPodium'), box=$('ratingList');
+    if(!ranked.length){
+      if(pod)pod.innerHTML='';
+      if(box)box.innerHTML='<div class="rk-empty"><svg class="svgico"><use href="#i-crown"/></svg><span>Рейтинг пока пуст. Сыграйте первую игру — и появитесь здесь. Баллы начисляются автоматически.</span></div>';
+      return;
+    }
+    const top=ranked.slice(0,3);
+    if(pod){ pod.innerHTML = podCell(2,top[1],'second')+podCell(1,top[0],'first')+podCell(3,top[2],'third'); try{hydrateArt(pod);}catch(e){} }
+    const rest=ranked.slice(3);
+    if(box){
+      box.innerHTML = rest.map(function(e,idx){ const me=e.id===ME.id, s=e.s;
+        return '<div class="frame rk-row '+(me?'me':'')+'"><div class="pos">'+(idx+4)+'</div>'+
+          '<div class="rav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>'+
+          '<div class="rinfo"><div class="rn">'+escH(me?ME.first_name:s.name)+(me?'<span class="youtag">Вы</span>':'')+'</div><div class="rs">'+winrate(s)+'% побед · '+s.games+' '+plural(s.games,'игра','игры','игр')+'</div></div>'+
+          '<div class="rpts"><svg class="svgico"><use href="#i-diamond"/></svg>'+s.pts+'</div></div>';
+      }).join('');
+      try{hydrateArt(box);}catch(e){}
+    }
   }
 
   // Авто-раздача из реального каталога: Дон + рядовая мафия, Доктор, Комиссар,
