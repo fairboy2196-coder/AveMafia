@@ -1859,18 +1859,18 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <!-- HERO EVENT ARTWORK slot — premium night-poster placeholder.
            ART TODO: replace #m-night-poster <use> with the real key art
            illustration for this event. -->
-      <div class="hero-art" data-asset="hero">
+      <div class="hero-art" id="ng-hero">
         <svg class="motif" preserveAspectRatio="xMidYMid slice"><use href="#m-night-poster"/></svg>
         <div class="gloss"></div>
         <div class="hero-vignette"></div>
       </div>
       <div class="ng-body">
-        <h2 class="ng-title">Лунная ночь</h2>
-        <div class="row-ico"><svg class="svgico"><use href="#i-cal"/></svg><b>10 июля 2026</b></div>
-        <div class="row-ico"><svg class="svgico"><use href="#i-clock"/></svg><b>19:00</b></div>
-        <div class="row-ico"><svg class="svgico"><use href="#i-pin"/></svg><span><b>Клуб «Теневой Дом»</b><br><span class="sub">ул. Лунная, 24</span></span></div>
-        <div class="row-ico price-tag"><svg class="svgico"><use href="#i-ticket"/></svg><span><b>1200 ₽</b> <span class="sub">с человека</span></span></div>
-        <button class="btn btn-primary mt" data-go="game-detail" data-game="moon"><svg class="svgico"><use href="#i-diamond"/></svg>Записаться</button>
+        <h2 class="ng-title" id="ng-title">Лунная ночь</h2>
+        <div class="row-ico"><svg class="svgico"><use href="#i-cal"/></svg><b id="ng-date">10 июля 2026</b></div>
+        <div class="row-ico"><svg class="svgico"><use href="#i-clock"/></svg><b id="ng-time">19:00</b></div>
+        <div class="row-ico"><svg class="svgico"><use href="#i-pin"/></svg><span><b id="ng-place">Клуб «Теневой Дом»</b></span></div>
+        <div class="row-ico price-tag"><svg class="svgico"><use href="#i-ticket"/></svg><span><b id="ng-price">1200 ₽</b> <span class="sub">с человека</span></span></div>
+        <button class="btn btn-primary mt" id="ng-book" data-go="game-detail" data-game="moon"><svg class="svgico"><use href="#i-diamond"/></svg>Записаться</button>
       </div>
     </div>
 
@@ -2461,6 +2461,12 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     fog:{title:"Маскарад",motif:"m-mask",img:"mask",date:"27 июня 2026",time:"19:00",place:"Академия Теней",price:"1200 ₽",seats:"0 из 10",status:"done",statusTxt:"Игра завершена",format:"тематическая",level:"Уровень: обычная",desc:"Завершённая игра клуба."},
     eclipse:{title:"Зов ворона",motif:"m-raven",img:"ev-raven",pos:"50% 34%",date:"20 июня 2026",time:"18:30",place:"Башня Ворона",price:"1300 ₽",seats:"0 из 12",status:"done",statusTxt:"Игра завершена",format:"тематическая",level:"Уровень: обычная",desc:"Завершённая игра клуба."}
   };
+  // Правки владельца (Управление) сохраняются в localStorage и подхватываются
+  // при загрузке, поэтому цена/дата/место не слетают и видны у всех на главной.
+  const GAMES_KEY='avemafia_games_v1';
+  function saveGames(){ try{ localStorage.setItem(GAMES_KEY, JSON.stringify(GAMES)); }catch(e){} }
+  (function loadGames(){ try{ const s=JSON.parse(localStorage.getItem(GAMES_KEY)||'null');
+    if(s && typeof s==='object'){ Object.keys(GAMES).forEach(k=>delete GAMES[k]); Object.keys(s).forEach(k=>{ GAMES[k]=s[k]; }); } }catch(e){} })();
 
   const ROLES = {
     // ===== mafia =====
@@ -2739,7 +2745,19 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   /* Еженедельная синхронизация расписания с календарём.
      TODO[calendar]: fetch('/api/schedule') из внешнего календаря (Google Calendar / iCal),
      обновить объект GAMES и перерисовать. Пока — перерисовка из локальных данных. */
-  function syncSchedule(){ renderUpcoming(); renderAnnouncements(); }
+  // Карточка «Ближайшая игра» на главной — из ближайшей по дате игры (не статичная),
+  // поэтому правки владельца (цена/дата/место) сразу видны всем на главной.
+  function renderHome(){
+    const keys=Object.keys(GAMES); if(!keys.length)return;
+    const k=keys.slice().sort((a,b)=>parseRuDate(GAMES[a].date)-parseRuDate(GAMES[b].date))[0];
+    const g=GAMES[k]; if(!g)return;
+    const T=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+    T('ng-title',g.title); T('ng-date',g.date); T('ng-time',g.time||''); T('ng-place',g.place||''); T('ng-price',g.price||'');
+    const btn=document.getElementById('ng-book'); if(btn)btn.dataset.game=k;
+    const hero=document.getElementById('ng-hero'); if(hero){ hero.querySelectorAll('.art-asset').forEach(n=>n.remove());
+      if(g.img){ mountAsset(hero,g.img); const im=hero.querySelector('.art-asset'); if(im&&g.pos)im.style.objectPosition=g.pos; } }
+  }
+  function syncSchedule(){ renderHome(); renderUpcoming(); renderAnnouncements(); }
   syncSchedule();
   setInterval(syncSchedule, 7*24*60*60*1000);   // раз в неделю
 
@@ -3027,6 +3045,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(special){ g.tags=$('efTags').value.trim(); g.img=undefined; g.pos=undefined; }
     else { g.img=img||undefined; g.pos=IMG_POS[img]||undefined; g.tags=undefined; }
     GAMES[key]=g;
+    saveGames();   // сохранить правки владельца, чтобы не слетали при перезагрузке
     sendToBackend(editingKey?'update-event':'create-event',{key:key,event:g,tgId:ME.id});
     syncSchedule(); renderAdmin();
     toast(editingKey?'Событие обновлено':'Событие создано','i-check');
@@ -3034,6 +3053,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function deleteEvent(key){
     const g=GAMES[key]; if(!g)return;
     delete GAMES[key];
+    saveGames();   // сохранить удаление
     sendToBackend('delete-event',{key:key,tgId:ME.id});
     syncSchedule(); renderAdmin();
     toast('Событие удалено','i-check');
@@ -3274,7 +3294,10 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     // v2: старый флаг сброшен намеренно — кто не завершил регистрацию (без согласия),
     // снова увидит это окно, пока не зарегистрируется по-настоящему.
     const STORE='avemafia_registered_v2';
-    try{ if(localStorage.getItem(STORE)){ auth.classList.add('done'); auth.setAttribute('aria-hidden','true'); return; } }catch(e){}
+    // Уже зарегистрирован (есть флаг ИЛИ сохранённый профиль) → сразу в приложение,
+    // без повторной регистрации: увидит сплэш-логотип и главное меню.
+    try{ const prof=JSON.parse(localStorage.getItem('avemafia_profile')||'null');
+      if(localStorage.getItem(STORE) || (prof && prof.first)){ auth.classList.add('done'); auth.setAttribute('aria-hidden','true'); return; } }catch(e){}
     try{ localStorage.removeItem('avemafia_registered'); }catch(e){}   // затираем старый флаг
     const reg={ method:'', phone:'', pass:'', first:'', last:'', occ:'' };
     const steps=auth.querySelectorAll('.auth-step');
