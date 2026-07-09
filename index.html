@@ -1820,7 +1820,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       </div>
       <div class="ng-body">
         <h2 class="ng-title">Лунная ночь</h2>
-        <div class="row-ico"><svg class="svgico"><use href="#i-cal"/></svg><b>24 мая 2025</b></div>
+        <div class="row-ico"><svg class="svgico"><use href="#i-cal"/></svg><b>10 июля 2026</b></div>
         <div class="row-ico"><svg class="svgico"><use href="#i-clock"/></svg><b>19:00</b></div>
         <div class="row-ico"><svg class="svgico"><use href="#i-pin"/></svg><span><b>Клуб «Теневой Дом»</b><br><span class="sub">ул. Лунная, 24</span></span></div>
         <div class="row-ico price-tag"><svg class="svgico"><use href="#i-ticket"/></svg><span><b>1200 ₽</b> <span class="sub">с человека</span></span></div>
@@ -1937,7 +1937,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     </div>
 
     <div class="info-grid">
-      <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-cal"/></svg>Дата</div><div class="val" id="gd-date">24 мая 2025</div></div>
+      <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-cal"/></svg>Дата</div><div class="val" id="gd-date">10 июля 2026</div></div>
       <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-clock"/></svg>Время</div><div class="val" id="gd-time">19:00</div></div>
       <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-pin"/></svg>Место</div><div class="val" id="gd-place">Теневой Дом</div></div>
       <div class="frame icell"><div class="lab"><svg class="svgico"><use href="#i-ticket"/></svg>Цена<button class="price-edit admin-only" id="gdPriceEdit" aria-label="Изменить цену"><svg class="svgico"><use href="#i-edit"/></svg></button></div><div class="val gold" id="gd-price">1200 ₽</div></div>
@@ -2422,26 +2422,26 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 
   /* ---------- data ---------- */
   const GAMES = {
-    moon:{title:"Лунная ночь",motif:"m-moon",img:"hero",date:"24 мая 2025",time:"19:00",place:"Клуб «Теневой Дом»",price:"1200 ₽",seats:"5 из 10",seatsN:5,status:"soon",statusTxt:"Скоро",format:"классика",level:"Уровень: обычная",
+    moon:{title:"Лунная ночь",motif:"m-moon",img:"hero",date:"10 июля 2026",time:"19:00",place:"Клуб «Теневой Дом»",price:"1200 ₽",seats:"10 из 10",seatsN:10,status:"soon",statusTxt:"Скоро",format:"классика",level:"Уровень: обычная",
       desc:"Игра при свете полной луны для опытных и новичков. Атмосферный стол, мягкое освещение и долгие ночи, в которые решается судьба города."},
-    masquerade:{title:"Маскарад",motif:"m-mask",img:"mask",date:"7 июня 2025",time:"18:30",place:"Академия Теней",price:"1300 ₽",seats:"7 из 12",seatsN:7,status:"open",statusTxt:"Открыта",format:"тематическая",level:"Уровень: обычная",
+    masquerade:{title:"Маскарад",motif:"m-mask",img:"mask",date:"17 июля 2026",time:"18:30",place:"Академия Теней",price:"1300 ₽",seats:"12 из 12",seatsN:12,status:"open",statusTxt:"Открыта",format:"тематическая",level:"Уровень: обычная",
       desc:"Бал масок и интриг. Все приходят в образах, а за каждой маской может скрываться кто угодно. Идеально для тех, кто любит отыгрыш и психологию."},
-    table:{title:"Теневой стол",motif:"m-table",img:"ev-table",pos:"50% 26%",date:"21 июня 2025",time:"19:00",place:"Клуб «Теневой Дом»",price:"1200 ₽",seats:"4 из 10",seatsN:4,status:"open",statusTxt:"Открыта",format:"закрытый стол",level:"Уровень: опытные",
+    table:{title:"Теневой стол",motif:"m-table",img:"ev-table",pos:"50% 26%",date:"24 июля 2026",time:"19:00",place:"Клуб «Теневой Дом»",price:"1200 ₽",seats:"10 из 10",seatsN:10,status:"open",statusTxt:"Открыта",format:"закрытый стол",level:"Уровень: опытные",
       desc:"Игра для тех, кто любит глубокие стратегии и тонкий блеф. Сильный состав, минимум случайностей — только холодный расчёт и чтение соперников."},
-    raven:{title:"Зов ворона",motif:"m-raven",img:"ev-raven",pos:"50% 34%",date:"5 июля 2025",time:"19:30",place:"Башня Ворона",price:"1400 ₽",seats:"6 из 12",seatsN:6,status:"soon",statusTxt:"Скоро",format:"тематическая",level:"Уровень: обычная",
+    raven:{title:"Зов ворона",motif:"m-raven",img:"ev-raven",pos:"50% 34%",date:"31 июля 2026",time:"19:30",place:"Башня Ворона",price:"1400 ₽",seats:"12 из 12",seatsN:12,status:"soon",statusTxt:"Скоро",format:"тематическая",level:"Уровень: обычная",
       desc:"Мрачная тематическая игра под знаком ворона. Особый сценарий, расширенный набор ролей третьей стороны и неожиданные повороты сюжета."},
-    crown:{title:"Проклятие королей",motif:"m-crown",img:"ev-crown",pos:"50% 60%",date:"19 июля 2025",time:"18:00",place:"Замок Ночи",price:"1500 ₽",seats:"3 из 10",seatsN:3,status:"soon",statusTxt:"Скоро",format:"турнир",level:"Уровень: опытные",
+    crown:{title:"Проклятие королей",motif:"m-crown",img:"ev-crown",pos:"50% 60%",date:"7 августа 2026",time:"18:00",place:"Замок Ночи",price:"1500 ₽",seats:"10 из 10",seatsN:10,status:"soon",statusTxt:"Скоро",format:"турнир",level:"Уровень: опытные",
       desc:"Премиальная игра в антураже старинного замка. Интриги двора, борьба за корону и роли, которые меняют исход одной фразой."},
     // ОСОБЫЙ формат — выезд (природа/катер/пейнтбол). Выделяется «чёрным сиянием».
     outdoor:{title:"Выездной ивент",special:true,motif:"i-compass",tags:"Пейнтбол · Катер · Природа",
-      date:"2 августа 2025",time:"12:00",place:"Загородный клуб «Тень Леса»",price:"3500 ₽",seats:"12 из 20",seatsN:12,
+      date:"2 августа 2026",time:"12:00",place:"Загородный клуб «Тень Леса»",price:"3500 ₽",seats:"20 из 20",seatsN:20,
       status:"soon",statusTxt:"Скоро",format:"выездной",level:"Формат: активный отдых",
       short:"Целый день вылазки: пейнтбол, катер и мафия под открытым небом.",
       desc:"Не просто игра — целый день на выезде. Пейнтбол, прогулка на катере, природа и мафия под открытым небом. Особый выездной формат клуба: случается редко и собирает самых преданных."}
   };
   const PAST = {
-    fog:{title:"Маскарад",motif:"m-mask",img:"mask",date:"3 мая 2025",time:"19:00",place:"Академия Теней",price:"1200 ₽",seats:"0 из 10",status:"done",statusTxt:"Игра завершена",format:"тематическая",level:"Уровень: обычная",desc:"Завершённая игра клуба."},
-    eclipse:{title:"Зов ворона",motif:"m-raven",img:"ev-raven",pos:"50% 34%",date:"26 апреля 2025",time:"18:30",place:"Башня Ворона",price:"1300 ₽",seats:"0 из 12",status:"done",statusTxt:"Игра завершена",format:"тематическая",level:"Уровень: обычная",desc:"Завершённая игра клуба."}
+    fog:{title:"Маскарад",motif:"m-mask",img:"mask",date:"27 июня 2026",time:"19:00",place:"Академия Теней",price:"1200 ₽",seats:"0 из 10",status:"done",statusTxt:"Игра завершена",format:"тематическая",level:"Уровень: обычная",desc:"Завершённая игра клуба."},
+    eclipse:{title:"Зов ворона",motif:"m-raven",img:"ev-raven",pos:"50% 34%",date:"20 июня 2026",time:"18:30",place:"Башня Ворона",price:"1300 ₽",seats:"0 из 12",status:"done",statusTxt:"Игра завершена",format:"тематическая",level:"Уровень: обычная",desc:"Завершённая игра клуба."}
   };
 
   const ROLES = {
@@ -3593,17 +3593,13 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
      ===================================================================== */
   const MIN_PLAYERS=10;                         // порог «игре быть» → открывается оплата
   const MAX_PLAYERS=24;                         // полный стол; дальше — резерв (очередь)
-  const SIM_KEY='avemafia_sim_v1';
+  const SIM_KEY='avemafia_sim_v2';   // v2 — старт без записей (обнулили предзапись)
   const TICKET_SECRET='ave-mafia-demo-secret';  // имитация серверного секрета подписи
   const FAKE_NAMES=['Багровый Кардинал','Леди Вуаль','Мистер Алиби','Тихий Омут','Пепельный Валет','Гроссмейстер','Полночный Гость','Серый Кот','Барон Суббота','Флориан','Госпожа Удача','Двойной Блеф','Иллюзионист','Тень у Окна','Седьмая Печать'];
-  const SEED_COUNT={moon:9,masquerade:7,table:4,raven:6,crown:3};
-
   function simDefault(){
     const games={};
-    Object.keys(GAMES).forEach(k=>{
-      const n=SEED_COUNT[k]!=null?SEED_COUNT[k]:4;
-      games[k]={players:FAKE_NAMES.slice(0,n).map((nm,i)=>({id:2000+i,name:nm,paid:false}))};
-    });
+    // Старт без записей — каждая игра начинается с пустой предзаписи.
+    Object.keys(GAMES).forEach(k=>{ games[k]={players:[]}; });
     return {games,tickets:[]};
   }
   let SIM=loadSim();
