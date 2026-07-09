@@ -3170,12 +3170,19 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     return { id: 1000427, first_name:'Ночной Странник', username:'night_wanderer', is_admin:true };
   }
   const ME = getTelegramUser();
-  // ▼▼▼ ВЛАДЕЛЬЦЫ КЛУБА ▼▼▼ — впиши сюда свой Telegram user id (узнать: @userinfobot),
-  // тогда в реальном Telegram только у тебя будут разделы Сканер/Проведение игры/Управление,
-  // демо-кнопки и редактирование цены. Пример: const OWNER_IDS=[123456789];
-  const OWNER_IDS = [];
-  // Админ = стаб вне Telegram (is_admin:true для локальной разработки) ИЛИ id в списке владельцев.
-  if(ME && (ME.is_admin || OWNER_IDS.indexOf(ME.id) >= 0)) document.body.classList.add('is-admin');
+  // ▼▼▼ ВЛАДЕЛЬЦЫ КЛУБА ▼▼▼
+  // Разделы Сканер/Проведение игры/Управление, демо-кнопки и редактирование цены
+  // видит только владелец. Гейтим по username (уникален) и/или числовому id.
+  const OWNER_USERNAMES = ['Lovelias21'];   // без @; можно добавить ещё
+  const OWNER_IDS = [];                       // числовые Telegram id (узнать: @userinfobot) — для надёжности
+  function isOwnerUser(u){
+    if(!u) return false;
+    if(u.is_admin) return true;               // стаб вне Telegram (локальная разработка)
+    if(OWNER_IDS.indexOf(u.id) >= 0) return true;
+    if(u.username && OWNER_USERNAMES.some(function(n){ return n.toLowerCase() === String(u.username).toLowerCase(); })) return true;
+    return false;
+  }
+  if(isOwnerUser(ME)) document.body.classList.add('is-admin');
   // Владелец профиля: приватные разделы (аватарки/бонусы/сундуки/история) видит только он.
   function isOwner(profileTgId){ return profileTgId === ME.id; }
   // Username виден только администратору клуба.
