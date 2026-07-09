@@ -1289,6 +1289,14 @@ body.style-winter .bar i{
 .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
 .auth-fine{margin:18px 0 0;text-align:center;color:var(--mist-2);font-size:12.5px}
 .auth-fine a{color:var(--violet);text-decoration:none;font-weight:600}
+.auth-consent{display:flex;align-items:flex-start;gap:10px;margin:16px 2px 2px;cursor:pointer;
+  font-size:13px;line-height:1.45;color:var(--mist)}
+.auth-consent input{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:20px;height:20px;margin:0;cursor:pointer;
+  border-radius:6px;border:1.5px solid var(--line-2);background:rgba(255,255,255,.03);position:relative;transition:.16s}
+.auth-consent input:checked{background:linear-gradient(180deg,#7a47e6,#5e8cff);border-color:transparent}
+.auth-consent input:checked::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.auth-consent a{color:var(--violet);font-weight:600}
 .auth-ico{width:64px;height:64px;margin:0 auto 14px;display:grid;place-items:center;border-radius:18px;
   color:#7fb4ff;background:rgba(94,140,255,.12);border:1px solid var(--line-2)}
 .auth-ico svg{width:32px;height:32px}
@@ -1405,6 +1413,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="btn btn-primary auth-btn" id="authTg"><svg class="svgico"><use href="#i-tg"/></svg>Продолжить через Telegram</button>
       <div class="auth-or"><span>или</span></div>
       <button class="btn btn-ghost auth-btn" id="authPhone"><svg class="svgico"><use href="#i-phone"/></svg>Регистрация по номеру</button>
+      <label class="auth-consent"><input type="checkbox" id="rConsent"><span>Я соглашаюсь на <a href="#" id="dataPolicy">обработку персональных данных</a></span></label>
+      <div class="auth-err" id="consentErr"></div>
       <p class="auth-fine">Уже с нами? <a href="#" id="authLogin">Войти</a></p>
     </section>
 
@@ -1443,6 +1453,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <p class="auth-sub">Как к вам обращаться и чем вы занимаетесь.</p>
       <label class="auth-field"><span>Имя</span><input type="text" id="rFirst" placeholder="Имя" autocomplete="given-name"></label>
       <label class="auth-field"><span>Фамилия</span><input type="text" id="rLast" placeholder="Фамилия" autocomplete="family-name"></label>
+      <label class="auth-field"><span>Дата рождения</span><input type="date" id="rBirthday" autocomplete="bday"></label>
       <div class="auth-field"><span>Вид деятельности</span>
         <div class="auth-chips" id="rOcc">
           <button type="button" class="occ" data-occ="Студент">Студент</button>
@@ -2174,7 +2185,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <div class="private-note"><svg class="svgico"><use href="#i-eye"/></svg>Сундуки и их содержимое видите только вы.</div>
       <div class="frame chest-intro">
         <svg class="svgico"><use href="#i-spark"/></svg>
-        <p>За получение нового статуса вы получили <b id="chestCount">3 сундука</b>. Откройте каждый — внутри случайная награда клуба.</p>
+        <p>У вас: <b id="chestCount">нет сундуков</b>. Сундуки дают за звание <b>лучшего игрока</b> и в <b>день рождения</b> — открывайте, внутри случайная награда клуба.</p>
       </div>
       <div class="chest-grid" id="chestGrid"></div>
       <p class="intro" style="text-align:center;margin-top:8px">Внутри: <b style="color:var(--ghost)">бесплатная игра</b>, <b style="color:var(--ghost)">выбор роли</b> или <b style="color:var(--ghost)">иммунитет на сутки</b>.</p>
@@ -3260,8 +3271,11 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   /* ---------- регистрация / вход (стартовый экран) ---------- */
   (function(){
     const auth=$('auth'); if(!auth) return;
-    const STORE='avemafia_registered';
+    // v2: старый флаг сброшен намеренно — кто не завершил регистрацию (без согласия),
+    // снова увидит это окно, пока не зарегистрируется по-настоящему.
+    const STORE='avemafia_registered_v2';
     try{ if(localStorage.getItem(STORE)){ auth.classList.add('done'); auth.setAttribute('aria-hidden','true'); return; } }catch(e){}
+    try{ localStorage.removeItem('avemafia_registered'); }catch(e){}   // затираем старый флаг
     const reg={ method:'', phone:'', pass:'', first:'', last:'', occ:'' };
     const steps=auth.querySelectorAll('.auth-step');
     const show=name=>{ steps.forEach(s=>s.classList.toggle('on',s.dataset.step===name)); auth.scrollTop=0; };
@@ -3270,9 +3284,15 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       $('rFirst').value = parts[0]||'';
       $('rLast').value  = (ME.last_name||parts.slice(1).join(' ')||'');
     };
-    $('authTg').addEventListener('click',()=>show('tg'));
-    $('authPhone').addEventListener('click',()=>show('phone'));
-    $('authLogin').addEventListener('click',e=>{ e.preventDefault(); finish('login'); });
+    // Без согласия на обработку перс. данных — дальше не пускаем (ни один способ).
+    const consentOK=()=>{ const c=$('rConsent'); if(c&&c.checked){ $('consentErr').textContent=''; return true; }
+      $('consentErr').textContent='Отметьте согласие на обработку персональных данных.'; return false; };
+    $('rConsent') && $('rConsent').addEventListener('change',()=>{ if($('rConsent').checked)$('consentErr').textContent=''; });
+    $('dataPolicy') && $('dataPolicy').addEventListener('click',e=>{ e.preventDefault();
+      toast('Согласие на обработку персональных данных','i-check'); });
+    $('authTg').addEventListener('click',()=>{ if(!consentOK())return; show('tg'); });
+    $('authPhone').addEventListener('click',()=>{ if(!consentOK())return; show('phone'); });
+    $('authLogin').addEventListener('click',e=>{ e.preventDefault(); if(!consentOK())return; finish('login'); });
     auth.querySelectorAll('[data-auth-back]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.authBack)));
     $('authTgAllow').addEventListener('click',()=>{ reg.method='telegram'; prefillFromTG(); show('profile'); });
     $('authPhoneNext').addEventListener('click',()=>{
@@ -3291,16 +3311,18 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     });
     $('rOccOther') && $('rOccOther').addEventListener('input',function(){ reg.occ=this.value.trim(); });
     function finish(mode){
+      // Защита: без согласия регистрацию не завершаем (флаг не ставим — окно вернётся).
+      if(!consentOK()){ show('welcome'); return; }
       if(mode!=='login'){
         const err=$('profErr'); err.textContent='';
-        reg.first=$('rFirst').value.trim(); reg.last=$('rLast').value.trim();
+        reg.first=$('rFirst').value.trim(); reg.last=$('rLast').value.trim(); reg.birthday=$('rBirthday')?$('rBirthday').value:'';
         if(!reg.first){ err.textContent='Укажите имя.'; return; }
         const otherOn=$('rOcc').querySelector('.occ.on')&&$('rOcc').querySelector('.occ.on').dataset.occ==='Другое';
         if(!reg.occ){ err.textContent= otherOn ? 'Напишите ваш вид деятельности.' : 'Выберите вид деятельности.'; return; }
       }
-      sendToBackend('register',{ method:reg.method||'login', phone:reg.phone, first:reg.first, last:reg.last, occupation:reg.occ, tgId:ME.id });
+      sendToBackend('register',{ method:reg.method||'login', phone:reg.phone, first:reg.first, last:reg.last, occupation:reg.occ, consent:true, tgId:ME.id });
       // Профиль игрока сохраняем локально (для будущего просмотра владельцем через backend).
-      try{ localStorage.setItem('avemafia_profile', JSON.stringify({first:reg.first,last:reg.last,occupation:reg.occ,phone:reg.phone,method:reg.method})); }catch(e){}
+      try{ localStorage.setItem('avemafia_profile', JSON.stringify({first:reg.first,last:reg.last,occupation:reg.occ,phone:reg.phone,birthday:reg.birthday,method:reg.method,consent:true})); }catch(e){}
       try{ localStorage.setItem(STORE,'1'); }catch(e){}
       auth.classList.add('done'); auth.setAttribute('aria-hidden','true');
       toast(reg.first ? ('Добро пожаловать, '+reg.first+'!') : 'С возвращением!','i-check');
@@ -3362,80 +3384,72 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     role:{title:"Выбор роли",desc:"Гарантированный выбор роли на игру",icon:"i-mask"},
     immune:{title:"Иммунитет на сутки",desc:"Защита рейтинга на 24 часа",icon:"i-shield"}
   };
-  const inv={ free:{qty:1,exp:"до 31 июля"}, role:{qty:1,exp:"бессрочно"}, immune:{qty:0,exp:"—"} };
+  function bonusInv(){ if(!SIM.bonuses)SIM.bonuses={free:0,role:0,immune:0}; return SIM.bonuses; }
   function renderInv(){
-    const keys=Object.keys(BONUS_DEF).filter(k=>inv[k].qty>0);
-    if(!keys.length){
-      $('invList').innerHTML='<div class="frame inv-empty">Пока нет активных бонусов.<br>Открывайте сундуки и получайте награды клуба.</div>';
-      return;
-    }
-    $('invList').innerHTML=keys.map(k=>{
-      const d=BONUS_DEF[k],it=inv[k];
+    const inv=bonusInv();
+    const keys=Object.keys(BONUS_DEF).filter(k=>(inv[k]||0)>0);
+    if(!keys.length){ $('invList').innerHTML='<div class="frame inv-empty">Пока нет бонусов.<br>Их дают за открытие сундуков.</div>'; return; }
+    $('invList').innerHTML=keys.map(k=>{ const d=BONUS_DEF[k];
       return `<div class="frame inv-item">
         <div class="iv-ico"><svg class="svgico"><use href="#${d.icon}"/></svg></div>
-        <div class="iv-info"><h4>${d.title}</h4><p>${d.desc} · <span class="exp">${it.exp}</span></p></div>
-        <div class="inv-qty">×${it.qty}</div>
+        <div class="iv-info"><h4>${d.title}</h4><p>${d.desc}</p></div>
+        <div class="inv-qty">×${inv[k]}</div>
         <button class="iv-act" data-bonus="${k}">Активировать</button>
       </div>`;
     }).join('');
   }
   $('invList').addEventListener('click',e=>{
-    const b=e.target.closest('[data-bonus]');if(!b)return;
-    const k=b.dataset.bonus;if(inv[k].qty<=0)return;
-    inv[k].qty--;
+    const b=e.target.closest('[data-bonus]');if(!b)return; const k=b.dataset.bonus; const inv=bonusInv();
+    if((inv[k]||0)<=0)return; inv[k]--; saveSim();
     sendToBackend('activate-bonus',{bonus:k,tgId:ME.id});
-    toast('Бонус активирован: '+BONUS_DEF[k].title,BONUS_DEF[k].icon);
-    renderInv();
+    toast('Бонус активирован: '+BONUS_DEF[k].title,BONUS_DEF[k].icon); renderInv();
   });
-  function addBonus(k){ inv[k].qty++; if(k==='immune'&&inv[k].exp==='—')inv[k].exp='24 часа'; renderInv(); }
-  renderInv();
+  function addBonus(k){ const inv=bonusInv(); inv[k]=(inv[k]||0)+1; saveSim(); renderInv(); }
 
   /* =====================================================================
-     СУНДУКИ — 3 сундука, случайная награда
+     СУНДУКИ — зарабатываются (за звание «лучший игрок» и день рождения),
+     старт пустой. Открытие сундука даёт случайный бонус.
      ===================================================================== */
   const CHEST_REWARDS=[
     {bonus:"free",  name:"Бесплатная игра", icon:"i-ticket", text:"Один вход в любую игру клуба — за счёт заведения."},
     {bonus:"role",  name:"Выбор роли",      icon:"i-mask",   text:"На следующей игре вы сами выбираете свою роль."},
     {bonus:"immune",name:"Иммунитет на сутки",icon:"i-shield",text:"Ваш рейтинг защищён от поражений на 24 часа."}
   ];
-  let chests=[{opened:false},{opened:false},{opened:false}];
-  function renderChests(){
-    // chest artwork: unopened chests show the real treasure render (assets/chest.png);
-    // opened ones fall back to the dimmed open-chest glyph.
-    $('chestGrid').innerHTML=chests.map((c,i)=>`
-      <div class="chest ${c.opened?'opened':''}" data-chest="${i}">
-        <div class="ch-rays"></div>
-        <div class="ch-ico"><svg><use href="#${c.opened?'i-chest-open':'i-chest'}"/></svg>${(!c.opened&&ASSETS.chest)?`<img class="ch-art" alt="" loading="lazy" src="${ASSETS.chest}" onload="this.classList.add('loaded');this.closest('.chest').classList.add('has-art')" onerror="this.remove()">`:''}</div>
-        <div class="ch-lab">${c.opened?'Открыт':'Сундук '+(i+1)}</div>
-      </div>`).join('');
-    const left=chests.filter(c=>!c.opened).length;
-    $('chestCount').textContent = left>0 ? (left+' '+plural(left,'сундук','сундука','сундуков')) : 'все сундуки открыты';
-  }
   function plural(n,a,b,c){const m=n%100,d=n%10;return m>10&&m<20?c:d>1&&d<5?b:d===1?a:c;}
-  $('chestGrid').addEventListener('click',e=>{
-    const el=e.target.closest('[data-chest]');if(!el)return;
-    const i=+el.dataset.chest;if(chests[i].opened)return;
-    el.classList.add('bursting');
-    setTimeout(()=>openChest(i),420);
-  });
-  function openChest(i){
-    chests[i].opened=true;
+  function chestN(){ return (SIM.chests|0); }
+  function grantChest(reason){ SIM.chests=chestN()+1; saveSim(); renderChests(); if(reason)toast(reason,'i-chest'); }
+  function renderChests(){
+    const n=chestN();
+    if(!n){ $('chestGrid').innerHTML='<div class="frame inv-empty">Сундуков пока нет. Их дают за звание <b>лучшего игрока</b> в игре и в ваш <b>день рождения</b>.</div>'; }
+    else{ let cards=''; for(let i=0;i<n;i++){ cards+=`<div class="chest" data-chest="${i}"><div class="ch-rays"></div><div class="ch-ico"><svg><use href="#i-chest"/></svg>${ASSETS.chest?`<img class="ch-art" alt="" loading="lazy" src="${ASSETS.chest}" onload="this.classList.add('loaded');this.closest('.chest').classList.add('has-art')" onerror="this.remove()">`:''}</div><div class="ch-lab">Сундук ${i+1}</div></div>`; } $('chestGrid').innerHTML=cards; }
+    const cc=$('chestCount'); if(cc)cc.textContent = n>0 ? (n+' '+plural(n,'сундук','сундука','сундуков')) : 'нет сундуков';
+  }
+  $('chestGrid').addEventListener('click',e=>{ const el=e.target.closest('[data-chest]');if(!el)return; if(chestN()<=0)return; el.classList.add('bursting'); setTimeout(openChest,420); });
+  function openChest(){
+    if(chestN()<=0)return; SIM.chests=chestN()-1; saveSim();
     const reward=CHEST_REWARDS[Math.floor(Math.random()*CHEST_REWARDS.length)];
-    sendToBackend('open-chest',{index:i,reward:reward.bonus,tgId:ME.id});
-    addBonus(reward.bonus);
-    renderChests();
+    sendToBackend('open-chest',{reward:reward.bonus,tgId:ME.id});
+    addBonus(reward.bonus); renderChests();
     openModal(`
       ${burstHTML()}
       <div class="modal-ico gold"><svg><use href="#${reward.icon}"/></svg></div>
       <h3>Сундук открыт!</h3>
       <p>Вам выпало:<br><span class="reward-name">${reward.name}</span><br><span style="font-size:12.5px">${reward.text}</span></p>
-      <div class="modal-actions">
-        <button class="btn btn-gold" data-modal-close><svg class="svgico"><use href="#i-check"/></svg>Забрать награду</button>
-      </div>
+      <div class="modal-actions"><button class="btn btn-gold" data-modal-close><svg class="svgico"><use href="#i-check"/></svg>Забрать награду</button></div>
       <div class="tg-note"><svg class="svgico"><use href="#i-shield"/></svg>Награда добавлена в «Мои бонусы»</div>`);
     modalCard.querySelector('[data-modal-close]').addEventListener('click',()=>toast('Награда в инвентаре: '+reward.name,reward.icon));
   }
-  renderChests();
+  // Проверка дня рождения: раз в год начисляет сундук, если сегодня ДР (из профиля регистрации).
+  function checkBirthday(){
+    try{
+      const p=JSON.parse(localStorage.getItem('avemafia_profile')||'{}');
+      if(!p.birthday)return;                    // формат YYYY-MM-DD
+      const d=new Date(), md=('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+      if(p.birthday.slice(5)===md && SIM.bdayYear!==d.getFullYear()){
+        SIM.bdayYear=d.getFullYear(); grantChest('🎂 С днём рождения! Вам сундук');
+      }
+    }catch(e){}
+  }
 
   /* =====================================================================
      АВАТАРКИ — коллекция (открываются за достижения / покупаются)
@@ -3605,7 +3619,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const games={};
     // Старт без записей — каждая игра начинается с пустой предзаписи.
     Object.keys(GAMES).forEach(k=>{ games[k]={players:[]}; });
-    return {games,tickets:[],avatars:[],favRoles:[]};
+    return {games,tickets:[],avatars:[],favRoles:[],chests:0,bonuses:{free:0,role:0,immune:0}};
   }
   let SIM=loadSim();
   function loadSim(){ try{const s=JSON.parse(localStorage.getItem(SIM_KEY));if(s&&s.games)return s;}catch(e){} return simDefault(); }
@@ -3887,7 +3901,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   $('favRoles') && $('favRoles').addEventListener('click',function(e){ if(e.target.closest('[data-favpick],[data-fav]')) openRolePicker(); });
 
   // Обновить все «прогресс»-экраны разом (профиль, рейтинг, достижения, аватарки, любимые роли).
-  function refreshProgress(){ renderProfileStats(); renderRating(); renderAch(); renderAvatars(); renderFavRoles(); }
+  function refreshProgress(){ renderProfileStats(); renderRating(); renderAch(); renderAvatars(); renderFavRoles(); renderInv(); renderChests(); }
   function podCell(rankNum, e, cls){
     if(!e) return '<div class="pod '+cls+' empty"></div>';
     const me=e.id===ME.id, nm=me?ME.first_name:e.s.name;
@@ -4001,7 +4015,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       if(s.monthGames===5){ s.pts+=RP.attend5; tags.push('5 игр/мес · +'+RP.attend5); }
       deltas[id]={won,tags};
     });
-    if(mvp!=null){ const s=pstat(mvp); s.pts+=RP.mvp; s.mvpTotal++; s.monthMvp++; deltas[mvp].tags.unshift('лучший · +'+RP.mvp); if(s.monthMvp===3){s.pts+=RP.mvp3mo;deltas[mvp].tags.push('3× MVP/мес · +'+RP.mvp3mo);} }
+    if(mvp!=null){ const s=pstat(mvp); s.pts+=RP.mvp; s.mvpTotal++; s.monthMvp++; deltas[mvp].tags.unshift('лучший · +'+RP.mvp); if(s.monthMvp===3){s.pts+=RP.mvp3mo;deltas[mvp].tags.push('3× MVP/мес · +'+RP.mvp3mo);}
+      if(mvp===ME.id){ SIM.chests=(SIM.chests|0)+1; } }   // лучшему игроку — сундук
     Object.keys(SIM.stats).forEach(k=>{ if(SIM.stats[k].pts<0)SIM.stats[k].pts=0; });
     saveSim();
     HOST._summary=hostSummaryHTML(pres,winTeam,mvp,deltas); HOST.phase='done'; renderHostStep();
@@ -4038,7 +4053,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     hb.addEventListener('change',e=>{ const r=e.target.closest('[data-hrole]'); if(r){ const id=+r.dataset.hrole; if(r.value)HOST.roles[id]=r.value; else delete HOST.roles[id]; renderHostStep(); } });
   })();
 
-  refreshProgress();   // старт: профиль, рейтинг, достижения, аватарки из живых данных
+  checkBirthday();     // если сегодня ДР игрока — начислить сундук (раз в год)
+  refreshProgress();   // старт: профиль, рейтинг, достижения, аватарки, сундуки/бонусы
   applyAssets();   // wire all static data-asset slots (header cat, hero, portraits, podium, rating)
   catLook('home'); // prime cat gaze
 })();
