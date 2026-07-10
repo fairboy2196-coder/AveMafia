@@ -14,10 +14,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const OWNER_USERNAMES = ["Lovelias21"];               // владельцы клуба (без @)
 const RP = { win: 3, loss: 0, mvp: 2, streak3: 1, mvp3mo: 2, attend5: 1 };
 
+// Полный доступ к БД: сначала явный секрет SERVICE_KEY (новый sb_secret_… ключ),
+// иначе авто-переменная SUPABASE_SERVICE_ROLE_KEY (в старых проектах).
+const SERVICE_KEY = Deno.env.get("SERVICE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const sb = createClient(
   Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  { auth: { persistSession: false } },
+  SERVICE_KEY,
+  { auth: { persistSession: false }, global: { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } } },
 );
 const BOT_TOKEN = Deno.env.get("BOT_TOKEN") ?? "";
 const TICKET_SECRET = Deno.env.get("TICKET_SECRET") ?? "ave-mafia-secret";
@@ -78,8 +81,9 @@ Deno.serve(async (req) => {
 
     // --- Публичные действия (без Telegram-авторизации): список игр и рейтинг ---
     if (action === "games") {
-      const { data } = await sb.from("games").select("*").eq("archived", false).order("gdate");
-      return json({ games: data ?? [] });
+      const { data, error } = await sb.from("games").select("*").eq("archived", false).order("gdate");
+      const dbg = { key: Deno.env.get("SERVICE_KEY") ? "SERVICE_KEY" : (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ? "SRV" : "NONE"), err: error?.message };
+      return json({ games: data ?? [], _dbg: dbg });
     }
     if (action === "leaderboard") {
       const { data } = await sb.from("player_stats")
