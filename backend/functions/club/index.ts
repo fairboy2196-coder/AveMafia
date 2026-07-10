@@ -75,6 +75,20 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     const { action, initData, payload = {} } = await req.json();
+
+    // --- Публичные действия (без Telegram-авторизации): список игр и рейтинг ---
+    if (action === "games") {
+      const { data } = await sb.from("games").select("*").eq("archived", false).order("gdate");
+      return json({ games: data ?? [] });
+    }
+    if (action === "leaderboard") {
+      const { data } = await sb.from("player_stats")
+        .select("tg_id, pts, wins, losses, games, users(first_name)")
+        .gt("games", 0).order("pts", { ascending: false }).limit(100);
+      return json({ leaderboard: data ?? [] });
+    }
+
+    // --- Остальное требует подписи Telegram (initData) ---
     const tgu = await verifyUser(initData);
     const me = await ensureUser(tgu);
     const isOwner = !!me?.is_owner;
@@ -93,12 +107,6 @@ Deno.serve(async (req) => {
         }
         const stats = await statsRow(me.tg_id);
         return json({ me: await one("users", me.tg_id), stats, isOwner });
-      }
-
-      // ---- список игр (всем) ----
-      case "games": {
-        const { data } = await sb.from("games").select("*").eq("archived", false).order("gdate");
-        return json({ games: data ?? [] });
       }
 
       // ---- владелец: создать/обновить игру ----
@@ -188,14 +196,6 @@ Deno.serve(async (req) => {
           await sb.from("users").update({ chests: (mu?.chests || 0) + 1 }).eq("tg_id", mvp);
         }
         return json({ ok: true, mvp });
-      }
-
-      // ---- рейтинг (всем): сыгравшие, по очкам ----
-      case "leaderboard": {
-        const { data } = await sb.from("player_stats")
-          .select("tg_id, pts, wins, losses, games, users(first_name)")
-          .gt("games", 0).order("pts", { ascending: false }).limit(100);
-        return json({ leaderboard: data ?? [] });
       }
 
       // ---- сохранить любимые роли / активную аватарку / покупку ----

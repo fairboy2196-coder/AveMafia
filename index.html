@@ -3224,10 +3224,26 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function isOwner(profileTgId){ return profileTgId === ME.id; }
   // Username виден только администратору клуба.
   function canSeeUsername(){ return ME.is_admin === true; }
-  // Отправка данных на backend (выбор аватарки, открытие сундука, активация бонуса).
+  /* ===== Реальный backend (Supabase Edge Function «club») =====
+     Все запросы идут одним POST с { action, initData, payload }.
+     initData — подпись Telegram (в реальном Mini App), сервер по ней узнаёт игрока. */
+  const BACKEND = {
+    url:  'https://gokgddangccasokamjmw.supabase.co/functions/v1/club',
+    anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdva2dkZGFuZ2NjYXNva2Ftam13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MzUyOTksImV4cCI6MjA5OTIxMTI5OX0.T594TGEEYy6yFqFlQPEBmhfWqyDbl8RvD0R8PVUq2w0',
+    enabled: true,
+    async call(action, payload){
+      const initData = (typeof TG!=='undefined' && TG && TG.initData) ? TG.initData : '';
+      try{
+        const r = await fetch(this.url, { method:'POST',
+          headers:{ 'content-type':'application/json', 'Authorization':'Bearer '+this.anon },
+          body: JSON.stringify({ action, initData, payload: payload||{} }) });
+        return await r.json();
+      }catch(e){ console.warn('[backend] '+action, e); return { error:String(e) }; }
+    }
+  };
+  // Фоновая отправка события (не блокирует UI). Реальная интеграция по сущностям — поэтапно.
   function sendToBackend(action,payload){
-    // TODO[backend]: fetch('/api/'+action,{method:'POST',headers:{'X-Tg-Init':TG?TG.initData:''},body:JSON.stringify(payload)})
-    console.log('[backend stub] '+action,payload);
+    if(BACKEND.enabled){ BACKEND.call(action, payload).catch(()=>{}); }
     return Promise.resolve({ok:true});
   }
   // Платёж (участие в игре / покупка аватарки). Реальную интеграцию подключим позже.
