@@ -957,6 +957,18 @@ body.style-winter .bar i{
 /* Когда настоящий арт загрузился — прячем SVG-заглушку под ним. Иначе на
    части движков (WebView Telegram) её свечение проступает ПОВЕРХ фото. */
 .has-art>.art{display:none!important}
+/* ===== БОЛЬШЕ НИКАКИХ SVG-ЗАГЛУШЕК =====
+   Плейсхолдер-SVG скрыт, ЕСЛИ в слоте есть <img> с реальной картинкой
+   (видна только картинка — или чистая тёмная плитка, пока грузится).
+   Если картинки нет вовсе (или она не загрузилась и <img> удалён) — SVG
+   остаётся видимым как задуманный визуал/фолбэк. Никаких «колхозных»
+   заглушек поверх картинок. */
+.hero-art:has(img.art-asset)>svg.motif, .gd-hero:has(img.art-asset)>svg.motif,
+.gthumb:has(img.art-asset)>svg, .rmask:has(img.art-asset)>svg,
+.rd-portrait:has(img.art-asset)>svg, .rd-mask:has(img.art-asset)>svg,
+.favi:has(img.art-asset)>svg, .rp-ico:has(img.art-asset)>svg,
+.pf-portrait:has(img.art-asset)>svg, .pav:has(img.art-asset)>svg,
+.rav:has(img.art-asset)>svg{ visibility:hidden!important; }
 /* frameless cat: fill the scene, feather the edges so the black photo
    background dissolves into the header (no box) and the moon shows behind. */
 .cat-scene .art-asset{inset:0;width:100%;height:100%;z-index:2;object-fit:cover;object-position:50% 36%;
@@ -2392,7 +2404,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(!ASSETS[key]) return '';
     return `<img class="art-asset ${extraClass||''}" alt=""${style?` style="${style}"`:''} src="${ASSETS[key]}"`+
       ` onload="this.classList.add('loaded');this.parentNode&&this.parentNode.classList.add('has-art')"`+
-      ` onerror="this.parentNode&&this.parentNode.classList.remove('has-art');this.remove()">`;
+      ` onerror="this.parentNode&&(this.parentNode.classList.remove('has-art'),this.parentNode.classList.add('no-art'));this.remove()">`;
   }
   // Deterministic hydration: если картинка уже в кэше (частый случай при
   // перерисовке innerHTML), событие onload может НЕ сработать в WebView —
@@ -2411,7 +2423,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       else{
         // backup listeners (не полагаемся только на inline onload)
         img.addEventListener('load',()=>mark(img),{once:true});
-        img.addEventListener('error',()=>{img.parentNode&&img.parentNode.classList.remove('has-art');img.remove();},{once:true});
+        img.addEventListener('error',()=>{img.parentNode&&(img.parentNode.classList.remove('has-art'),img.parentNode.classList.add('no-art'));img.remove();},{once:true});
       }
     });
     // повторная сверка на следующий кадр — на случай позднего complete в WebView
