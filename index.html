@@ -3506,7 +3506,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
           '<span class="av-need">'+need+'</span>';
       }
       return `<div class="av-card rar-${a.rar} ${unlocked?'':'locked'} ${(a.active&&unlocked)?'active':''}" data-av="${a.id}">
-        <div class="av-port rar-${a.rar}"><svg class="art"><use href="#${a.art}"/></svg>${assetImgHTML(a.img)}${badge}${overlay}</div>
+        <div class="av-port rar-${a.rar}">${assetImgHTML(a.img)}${badge}${overlay}</div>
         <span class="av-rname">${a.name}</span>
         <span class="av-rrar">${RAR_LABEL[a.rar]}</span>
       </div>`;
@@ -4078,6 +4078,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 
   checkBirthday();     // если сегодня ДР игрока — начислить сундук (раз в год)
   refreshProgress();   // старт: профиль, рейтинг, достижения, аватарки, сундуки/бонусы
+  try{ const _av=AVATARS.find(x=>x.active)||AVATARS[0]; if(_av)setActiveAvatar(_av.id); }catch(e){}   // синхронизировать «Активная аватарка»
   applyAssets();   // wire all static data-asset slots (header cat, hero, portraits, podium, rating)
   catLook('home'); // prime cat gaze
 })();
