@@ -3057,16 +3057,21 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(special){ g.tags=$('efTags').value.trim(); g.img=undefined; g.pos=undefined; }
     else { g.img=img||undefined; g.pos=IMG_POS[img]||undefined; g.tags=undefined; }
     GAMES[key]=g;
-    saveGames();   // сохранить правки владельца, чтобы не слетали при перезагрузке
-    sendToBackend(editingKey?'update-event':'create-event',{key:key,event:g,tgId:ME.id});
+    saveGames();   // локальная копия (на случай без сети/вне Telegram)
+    // Сохранить в ОБЩУЮ базу (владелец, через Telegram). Успех → перечитать для всех.
+    const dbGame={ id:key, title, gdate:$('efDate').value||null, gtime:$('efTime').value||'', place:$('efPlace').value.trim(),
+      price:+price||0, capacity:+total||24, min_players:10, status,
+      format:$('efFormat').value.trim(), level:$('efLevel').value.trim(), descr:$('efDesc').value.trim(),
+      img:special?null:(img||null), special:!!special, archived:false };
+    BACKEND.call('adminSaveGame',{game:dbGame}).then(r=>{ if(r&&r.games)loadGames(); else if(r&&r.error)toast('В базу сохранит владелец из Telegram','i-info'); });
     syncSchedule(); renderAdmin();
     toast(editingKey?'Событие обновлено':'Событие создано','i-check');
   }
   function deleteEvent(key){
     const g=GAMES[key]; if(!g)return;
     delete GAMES[key];
-    saveGames();   // сохранить удаление
-    sendToBackend('delete-event',{key:key,tgId:ME.id});
+    saveGames();   // локальная копия
+    BACKEND.call('adminDeleteGame',{gameId:key}).then(r=>{ if(r&&r.ok)loadGames(); });
     syncSchedule(); renderAdmin();
     toast('Событие удалено','i-check');
   }
@@ -3245,6 +3250,31 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function sendToBackend(action,payload){
     if(BACKEND.enabled){ BACKEND.call(action, payload).catch(()=>{}); }
     return Promise.resolve({ok:true});
+  }
+  // ---- Игры из ОБЩЕЙ базы (Supabase). Строка БД → структура GAMES фронта. ----
+  function mapDbGame(r){
+    return {
+      id:r.id, title:r.title||'',
+      date: isoToRu(r.gdate) || (r.gdate||''),
+      time: r.gtime||'', place:r.place||'',
+      price: (+r.price>0) ? ((+r.price).toLocaleString('ru-RU')+' ₽') : '—',
+      capacity:r.capacity||24, min_players:r.min_players||10,
+      status:r.status||'soon', statusTxt: STATUS_TXT[r.status]||'',
+      format:r.format||'', level:r.level||'', desc:r.descr||'',
+      img: r.img||undefined, special: !!r.special,
+      motif: r.special?'i-compass':'m-moon',
+      tags: r.special?(r.descr||''):undefined,
+      seats:(r.capacity||0)+' из '+(r.capacity||0), seatsN:r.capacity||0
+    };
+  }
+  // Загрузить игры из базы и перерисовать (общий список для всех).
+  async function loadGames(){
+    const res = await BACKEND.call('games', {});
+    if(res && Array.isArray(res.games) && res.games.length){
+      Object.keys(GAMES).forEach(k=>delete GAMES[k]);
+      res.games.forEach(r=>{ GAMES[r.id]=mapDbGame(r); });
+      syncSchedule();
+    }
   }
   // Платёж (участие в игре / покупка аватарки). Реальную интеграцию подключим позже.
   function processPayment({title,amount,kind,onSuccess}){
@@ -4109,6 +4139,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   try{ const _av=AVATARS.find(x=>x.active)||AVATARS[0]; if(_av)setActiveAvatar(_av.id); }catch(e){}   // синхронизировать «Активная аватарка»
   applyAssets();   // wire all static data-asset slots (header cat, hero, portraits, podium, rating)
   catLook('home'); // prime cat gaze
+  loadGames();     // подтянуть игры из ОБЩЕЙ базы (Supabase) — общий список для всех
 })();
 </script>
 </body>

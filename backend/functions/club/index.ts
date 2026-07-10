@@ -34,7 +34,7 @@ const TICKET_SECRET = Deno.env.get("TICKET_SECRET") ?? "ave-mafia-secret";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (data: unknown, status = 200) =>
