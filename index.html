@@ -1164,6 +1164,9 @@ body.style-winter .bar i{
 .fg-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mist-2)}
 .fg-done{text-align:center;font-family:"Forum",serif;letter-spacing:.2em;text-transform:uppercase;
   font-size:12px;color:var(--gold);margin:2px 0 4px}
+.fg-pick.on{background:rgba(155,124,255,.18);border-color:rgba(155,124,255,.55)}
+.fg-pick .fg-chev{color:var(--violet)}
+.icon-btn.on{color:var(--violet);border-color:rgba(155,124,255,.6)}
 
 /* ---------------- enhanced achievements rarity ---------------- */
 .achc.rar-common .achi{border-color:rgba(150,160,200,.32)}
@@ -1922,7 +1925,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <h1>Игры</h1>
       <span style="display:flex;gap:8px">
         <button class="icon-btn admin-only" data-go="admin" aria-label="Управление событиями"><svg><use href="#i-edit"/></svg></button>
-        <button class="icon-btn" aria-label="Фильтр"><svg><use href="#i-filter"/></svg></button>
+        <button class="icon-btn" id="gamesFilterBtn" aria-label="Фильтр"><svg><use href="#i-filter"/></svg></button>
       </span>
     </div>
 
@@ -2436,6 +2439,14 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   // Пробегаем по уже готовым <img> и проставляем классы синхронно.
   function hydrateArt(root){
     const scope=root||document;
+    // РАЗ И НАВСЕГДА: сначала СМОНТИРОВАТЬ картинки для всех data-asset слотов
+    // (роли, рейтинг, портреты) — иначе при перерисовке остаётся голая SVG-заглушка.
+    // Раньше это делал только applyAssets() на старте; теперь любая перерисовка,
+    // зовущая hydrateArt(), сама поднимает реальные картинки.
+    scope.querySelectorAll('[data-asset]').forEach(el=>{
+      if(el.dataset.assetDone) return; el.dataset.assetDone='1';
+      mountAsset(el, el.dataset.asset);
+    });
     const mark=img=>{
       if(img.naturalWidth>0){
         img.classList.add('loaded');
@@ -2735,16 +2746,33 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function parseRuDate(s){ const m=(s||'').toLowerCase().match(/(\d+)\s+([а-яё]+)\s+(\d{4})/);
     return m ? new Date(+m[3], RU_MONTHS[m[2]]||0, +m[1]).getTime() : 0; }
   const shortDate=s=>(s||'').replace(/\s*\d{4}\s*$/,'');
-  // порядок расписания: сначала особые (выездные), затем по дате
-  function upcomingKeys(){ return Object.keys(GAMES).sort((a,b)=>
+  // Начало сегодняшнего дня (полночь) — игра «прошедшая», если её дата раньше сегодня.
+  function todayStart(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(); }
+  // Игра прошедшая, если владелец отметил её завершённой ИЛИ её дата уже прошла.
+  function isPastGame(g){ if(!g) return false; if(g.status==='done') return true;
+    const t=parseRuDate(g.date); return t>0 && t<todayStart(); }
+  // Фильтр по типу (кнопка ☰). all = все.
+  let gameFilter='all';
+  function passFilter(g){ if(gameFilter==='all')return true;
+    if(gameFilter==='trip')return !!g.special;
+    return !g.special && String(g.format||'').toLowerCase().indexOf(gameFilter)>=0; }
+  // порядок расписания: сначала особые (выездные), затем по дате. Прошедшие — исключаем.
+  function upcomingKeys(){ return Object.keys(GAMES).filter(k=>!isPastGame(GAMES[k])&&passFilter(GAMES[k])).sort((a,b)=>
     ((GAMES[b].special?1:0)-(GAMES[a].special?1:0)) || (parseRuDate(GAMES[a].date)-parseRuDate(GAMES[b].date))); }
+  // Прошедшие игры из общей базы (дата прошла / отмечены завершёнными) — новые сверху.
+  function pastGameKeys(){ return Object.keys(GAMES).filter(k=>isPastGame(GAMES[k])).sort((a,b)=>
+    parseRuDate(GAMES[b].date)-parseRuDate(GAMES[a].date)); }
 
   function gameCard(key,g){
+    // Прошедшая по дате игра → бейдж «Завершена», даже если статус остался «Скоро/Открыта».
+    const _past=isPastGame(g);
+    const bCls=_past?'done':g.status;
+    const bTxt=_past?(g.status==='done'?(g.statusTxt||'Игра завершена'):'Завершена'):g.statusTxt;
     if(g.special) return `<div class="frame gcard gcard-trip" data-go="game-detail" data-game="${key}">
       <div class="gthumb trip-thumb"><span class="eclipse"></span></div>
       <div class="ginfo">
         <span class="trip-badge"><svg class="svgico"><use href="#i-compass"/></svg>Выездной ивент</span>
-        <div class="ghead"><h3>${g.title}</h3><span class="badge ${g.status}">${g.statusTxt}</span></div>
+        <div class="ghead"><h3>${g.title}</h3><span class="badge ${bCls}">${bTxt}</span></div>
         <div class="gr"><svg class="svgico"><use href="#i-cal"/></svg><b>${g.date}</b></div>
         <div class="gr"><svg class="svgico"><use href="#i-pin"/></svg><b>${g.place}</b></div>
         <div class="trip-tags">${g.tags||''}</div>
@@ -2754,7 +2782,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     return `<div class="frame gcard" data-go="game-detail" data-game="${key}">
       <div class="gthumb"><svg><use href="#${g.motif}"/></svg>${assetImgHTML(g.img,'',g.pos?('object-position:'+g.pos):'')}<div class="glo"></div></div>
       <div class="ginfo">
-        <div class="ghead"><h3>${g.title}</h3><span class="badge ${g.status}">${g.statusTxt}</span></div>
+        <div class="ghead"><h3>${g.title}</h3><span class="badge ${bCls}">${bTxt}</span></div>
         <div class="gr"><svg class="svgico"><use href="#i-cal"/></svg><b>${g.date}</b></div>
         <div class="gr"><svg class="svgico"><use href="#i-clock"/></svg><b>${g.time}</b></div>
         <div class="gr"><svg class="svgico"><use href="#i-pin"/></svg><b>${g.place}</b></div>
@@ -2784,7 +2812,10 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   // Карточка «Ближайшая игра» на главной — из ближайшей по дате игры (не статичная),
   // поэтому правки владельца (цена/дата/место) сразу видны всем на главной.
   function renderHome(){
-    const keys=Object.keys(GAMES); if(!keys.length)return;
+    // «Ближайшая игра» = ближайшая ПРЕДСТОЯЩАЯ по дате (прошедшие не берём).
+    let keys=Object.keys(GAMES).filter(k=>!isPastGame(GAMES[k]));
+    if(!keys.length) keys=Object.keys(GAMES);   // если все прошли — показать хоть что-то
+    if(!keys.length)return;
     const k=keys.slice().sort((a,b)=>parseRuDate(GAMES[a].date)-parseRuDate(GAMES[b].date))[0];
     const g=GAMES[k]; if(!g)return;
     const T=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -2793,14 +2824,45 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const hero=document.getElementById('ng-hero'); if(hero){ hero.querySelectorAll('.art-asset').forEach(n=>n.remove());
       if(g.img){ mountAsset(hero,g.img); const im=hero.querySelector('.art-asset'); if(im&&g.pos)im.style.objectPosition=g.pos; } }
   }
-  function syncSchedule(){ renderHome(); renderUpcoming(); renderAnnouncements(); }
+  // Прошедшие: игры из базы с прошедшей датой (новые сверху) + локальный архив PAST.
+  function renderPast(){ const el=document.getElementById('list-past'); if(!el)return;
+    const html = pastGameKeys().map(k=>gameCard(k,GAMES[k])).join('') +
+                 Object.keys(PAST).map(k=>gameCard(k,PAST[k])).join('');
+    el.innerHTML = html || '<p class="intro">Пока нет завершённых игр.</p>';
+    hydrateArt(el); }
+  function syncSchedule(){ renderHome(); renderUpcoming(); renderAnnouncements(); renderPast(); }
   syncSchedule();
   setInterval(syncSchedule, 7*24*60*60*1000);   // раз в неделю
 
-  document.getElementById('list-past').innerHTML =
-    Object.keys(PAST).map(k=>gameCard(k,PAST[k])).join('') ||
-    '<p class="intro">Пока нет завершённых игр.</p>';
-  hydrateArt(document.getElementById('list-past'));
+  // Фильтр «Ближайших» игр по типу (кнопка ☰ справа сверху).
+  const GAME_FILTERS=[
+    {v:'all',   label:'Все игры',      ico:'i-diamond'},
+    {v:'класс', label:'Классика',      ico:'m-moon'},
+    {v:'темат', label:'Тематические',  ico:'i-mask'},
+    {v:'турнир',label:'Турниры',       ico:'i-crown'},
+    {v:'trip',  label:'Выездные',      ico:'i-compass'}
+  ];
+  function openGameFilter(){
+    const opts=GAME_FILTERS.map(f=>'<button class="fg-pick'+(gameFilter===f.v?' on':'')+'" data-gf="'+f.v+'">'+
+      '<span class="fg-t"><svg class="svgico" style="width:16px;height:16px;vertical-align:-3px;margin-right:7px"><use href="#'+f.ico+'"/></svg>'+f.label+'</span>'+
+      (gameFilter===f.v?'<svg class="svgico fg-chev"><use href="#i-check"/></svg>':'')+'</button>').join('');
+    openModal('<div class="modal-ico violet"><svg><use href="#i-filter"/></svg></div>'+
+      '<h3>Фильтр игр</h3><p>Показать в «Ближайших» только выбранный тип.</p>'+
+      '<div class="fg-list">'+opts+'</div>'+
+      '<div class="modal-actions"><button class="btn btn-ghost" data-modal-close>Закрыть</button></div>');
+    modalCard.querySelectorAll('[data-gf]').forEach(function(b){ b.addEventListener('click',function(){
+      gameFilter=b.dataset.gf;
+      const seg=document.getElementById('gamesSeg'); if(seg){ seg.querySelector('[data-list="upcoming"]').classList.add('on'); seg.querySelector('[data-list="past"]').classList.remove('on'); }
+      document.getElementById('list-upcoming').classList.remove('hide');
+      document.getElementById('list-past').classList.add('hide');
+      renderUpcoming();
+      const fb=document.getElementById('gamesFilterBtn'); if(fb)fb.classList.toggle('on',gameFilter!=='all');
+      closeModal();
+      const f=GAME_FILTERS.find(x=>x.v===gameFilter);
+      toast(gameFilter==='all'?'Показаны все игры':'Фильтр: '+(f?f.label:''),'i-filter');
+    }); });
+  }
+  { const fb=document.getElementById('gamesFilterBtn'); if(fb)fb.addEventListener('click',openGameFilter); }
 
   /* ---------- render role cards ---------- */
   function roleCard(key,r){
