@@ -88,15 +88,24 @@ Deno.serve(async (req) => {
 
     // --- Публичные действия (без Telegram-авторизации): список игр и рейтинг ---
     if (action === "games") {
-      const { data, error } = await sb.from("games").select("*").eq("archived", false).order("gdate");
-      const dbg = { src: SERVICE_KEY.startsWith("sb_secret") ? "secret" : (SERVICE_KEY.startsWith("eyJ") ? "jwt" : (SERVICE_KEY ? "other" : "none")), err: error?.message };
-      return json({ games: data ?? [], _dbg: dbg });
+      const { data } = await sb.from("games").select("*").eq("archived", false).order("gdate");
+      return json({ games: data ?? [] });
     }
     if (action === "leaderboard") {
-      const { data } = await sb.from("player_stats")
-        .select("tg_id, pts, wins, losses, games, users(first_name)")
-        .gt("games", 0).order("pts", { ascending: false }).limit(100);
-      return json({ leaderboard: data ?? [] });
+      // ВСЕ зарегистрированные игроки клуба (а не только сыгравшие) —
+      // владелец должен видеть всё сообщество. Сортировка: по очкам, затем по числу игр.
+      const { data } = await sb.from("users")
+        .select("tg_id, first_name, created_at, player_stats(pts,wins,losses,games,mvp_total)")
+        .order("created_at", { ascending: true }).limit(1000);
+      const list = (data ?? []).map((u: any) => {
+        const s = Array.isArray(u.player_stats) ? (u.player_stats[0] || {}) : (u.player_stats || {});
+        return {
+          tg_id: u.tg_id, first_name: u.first_name || "Игрок",
+          pts: s.pts ?? 0, wins: s.wins ?? 0, losses: s.losses ?? 0,
+          games: s.games ?? 0, mvp: s.mvp_total ?? 0,
+        };
+      }).sort((a, b) => (b.pts - a.pts) || (b.games - a.games));
+      return json({ leaderboard: list, count: list.length });
     }
 
     // --- Остальное требует подписи Telegram (initData) ---

@@ -823,6 +823,10 @@ body.style-winter .bar i{
 .rk-empty{display:flex;gap:12px;align-items:center;padding:20px 18px;border-radius:16px;border:1px dashed var(--line-2);
   background:rgba(255,255,255,.02);color:var(--mist);font-size:13.5px;line-height:1.45}
 .rk-empty .svgico{width:26px;height:26px;flex:0 0 auto;color:var(--gold);opacity:.7}
+.rk-total{display:flex;gap:8px;align-items:center;margin:0 0 12px;padding:10px 14px;border-radius:12px;
+  border:1px solid var(--line-2);background:rgba(231,194,123,.06);color:var(--ghost);font-size:13px}
+.rk-total .svgico{width:17px;height:17px;color:var(--gold);flex:0 0 auto}
+.rk-total b{color:var(--gold);font-weight:700}
 .pod .pav{border-radius:50%;overflow:hidden;position:relative;border:2px solid var(--line-2);
   background:radial-gradient(120% 100% at 50% 8%,rgba(122,71,230,.4),transparent),linear-gradient(180deg,#1a1340,#0c0921)}
 .pod .pav svg{position:absolute;inset:0;width:100%;height:100%}
@@ -1150,6 +1154,16 @@ body.style-winter .bar i{
 .inv-item .iv-act:hover{background:rgba(155,124,255,.2)}
 .inv-item .iv-act:disabled{opacity:.45;cursor:default}
 .inv-empty{text-align:center;color:var(--mist-2);font-size:13px;padding:26px 10px;line-height:1.5}
+/* Пикер «Бесплатная игра» в модалке */
+.fg-list{display:flex;flex-direction:column;gap:9px;margin:14px 0 4px;text-align:left}
+.fg-pick{display:flex;flex-direction:column;gap:2px;position:relative;padding:12px 40px 12px 14px;border-radius:13px;
+  border:1px solid var(--line-2);background:rgba(155,124,255,.07);color:var(--ghost);cursor:pointer;transition:.2s;width:100%}
+.fg-pick:hover{background:rgba(155,124,255,.16);border-color:rgba(155,124,255,.4)}
+.fg-t{font-family:"Playfair Display",serif;font-weight:700;font-size:15px}
+.fg-d{color:var(--mist);font-size:12.5px}
+.fg-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mist-2)}
+.fg-done{text-align:center;font-family:"Forum",serif;letter-spacing:.2em;text-transform:uppercase;
+  font-size:12px;color:var(--gold);margin:2px 0 4px}
 
 /* ---------------- enhanced achievements rarity ---------------- */
 .achc.rar-common .achi{border-color:rgba(150,160,200,.32)}
@@ -1277,6 +1291,9 @@ body.style-winter .bar i{
 }
 @media(prefers-reduced-motion:reduce){
   *{animation:none !important;transition:none !important}
+  /* Сплэш скрывается через анимацию splashOut — при отключённой анимации
+     он бы завис навсегда и перекрыл экран. Прячем его сразу. */
+  .splash{visibility:hidden !important;opacity:0 !important;pointer-events:none !important}
 }
 
 /* ===================== РЕГИСТРАЦИЯ / ВХОД ===================== */
@@ -2326,6 +2343,13 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       document.documentElement.classList.add('in-telegram');
     }
   }catch(e){}
+  // СТРАХОВКА: сплэш-заставка обязана исчезнуть у всех, даже если CSS-анимация
+  // отключена («Уменьшить движение» в системе) или не сработала — иначе экран
+  // застревает на логотипе кота и в приложение не войти. Прячем принудительно.
+  try{
+    setTimeout(function(){ var sp=document.getElementById('splash');
+      if(sp){ sp.style.opacity='0'; sp.style.visibility='hidden'; sp.style.pointerEvents='none'; } }, 2200);
+  }catch(e){}
 </script>
 
 <!-- QR-генератор (qrcode-generator 1.4.4, MIT) для билетов. Локальный файл,
@@ -2861,7 +2885,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(id==='host')renderHost();
     if(id==='admin')renderAdmin();
     if(id==='profile'){ renderProfileStats(); renderAch(); renderAvatars(); }
-    if(id==='rating')renderRating();
+    if(id==='rating'){ renderRating(); loadLeaderboard(); }   // обновить сообщество из общей базы
     if(id==='achievements')renderAch();
     closeSheet();             // close menu / notifications if open
     catLeap(el);              // cat leaps onto the pressed control and dissolves
@@ -3276,6 +3300,30 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       syncSchedule();
     }
   }
+  // ---- Регистрация игрока в ОБЩЕЙ базе (по подписи Telegram). Вызывается на старте
+  //      и после завершения регистрации: сервер upsert'ит юзера → он попадает в рейтинг-сообщество. ----
+  async function backendInit(){
+    if(!BACKEND.enabled) return null;
+    let prof=null; try{ prof=JSON.parse(localStorage.getItem('avemafia_profile')||'null'); }catch(e){}
+    const res = await BACKEND.call('init', prof?{profile:prof}:{});
+    if(res && res.isOwner) document.body.classList.add('is-admin');   // владелец подтверждён сервером
+    // после регистрации нового игрока — обновить список сообщества
+    loadLeaderboard();
+    return res;
+  }
+  // ---- Рейтинг/сообщество из ОБЩЕЙ базы: ВСЕ зарегистрированные игроки (общий для всех). ----
+  let RATING_DB=null;   // null = ещё не загружено; массив = данные из базы
+  async function loadLeaderboard(){
+    if(!BACKEND.enabled) return;
+    const res = await BACKEND.call('leaderboard', {});
+    if(res && Array.isArray(res.leaderboard)){
+      RATING_DB = res.leaderboard.map(function(u){
+        return { id:u.tg_id, s:{ name:u.first_name||'Игрок', pts:u.pts|0, wins:u.wins|0,
+                 losses:u.losses|0, games:u.games|0, mvpTotal:u.mvp|0, winsByTeam:{mafia:0,good:0,third:0} } };
+      });
+      renderRating();
+    }
+  }
   // Платёж (участие в игре / покупка аватарки). Реальную интеграцию подключим позже.
   function processPayment({title,amount,kind,onSuccess}){
     // TODO[payment]: TG.openInvoice(slug, status=>{...})  или провайдер оплаты.
@@ -3401,10 +3449,11 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         const otherOn=$('rOcc').querySelector('.occ.on')&&$('rOcc').querySelector('.occ.on').dataset.occ==='Другое';
         if(!reg.occ){ err.textContent= otherOn ? 'Напишите ваш вид деятельности.' : 'Выберите вид деятельности.'; return; }
       }
-      sendToBackend('register',{ method:reg.method||'login', phone:reg.phone, first:reg.first, last:reg.last, occupation:reg.occ, consent:true, tgId:ME.id });
-      // Профиль игрока сохраняем локально (для будущего просмотра владельцем через backend).
+      // Профиль игрока сохраняем локально…
       try{ localStorage.setItem('avemafia_profile', JSON.stringify({first:reg.first,last:reg.last,occupation:reg.occ,phone:reg.phone,birthday:reg.birthday,method:reg.method,consent:true})); }catch(e){}
       try{ localStorage.setItem(STORE,'1'); }catch(e){}
+      // …и регистрируем в ОБЩЕЙ базе по подписи Telegram (попадёт в рейтинг-сообщество, виден владельцу).
+      try{ backendInit(); }catch(e){}
       auth.classList.add('done'); auth.setAttribute('aria-hidden','true');
       toast(reg.first ? ('Добро пожаловать, '+reg.first+'!') : 'С возвращением!','i-check');
     }
@@ -3471,20 +3520,52 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const keys=Object.keys(BONUS_DEF).filter(k=>(inv[k]||0)>0);
     if(!keys.length){ $('invList').innerHTML='<div class="frame inv-empty">Пока нет бонусов.<br>Их дают за открытие сундуков.</div>'; return; }
     $('invList').innerHTML=keys.map(k=>{ const d=BONUS_DEF[k];
+      // «Бесплатная игра» → «Использовать»: выдаёт билет с активным QR и списывает бонус.
+      const label = k==='free' ? 'Использовать' : 'Активировать';
       return `<div class="frame inv-item">
         <div class="iv-ico"><svg class="svgico"><use href="#${d.icon}"/></svg></div>
         <div class="iv-info"><h4>${d.title}</h4><p>${d.desc}</p></div>
         <div class="inv-qty">×${inv[k]}</div>
-        <button class="iv-act" data-bonus="${k}">Активировать</button>
+        <button class="iv-act" data-bonus="${k}">${label}</button>
       </div>`;
     }).join('');
   }
   $('invList').addEventListener('click',e=>{
     const b=e.target.closest('[data-bonus]');if(!b)return; const k=b.dataset.bonus; const inv=bonusInv();
-    if((inv[k]||0)<=0)return; inv[k]--; saveSim();
+    if((inv[k]||0)<=0)return;
+    if(k==='free'){ useFreeGame(); return; }            // «Бесплатная игра» → билет с QR
+    inv[k]--; saveSim();
     sendToBackend('activate-bonus',{bonus:k,tgId:ME.id});
     toast('Бонус активирован: '+BONUS_DEF[k].title,BONUS_DEF[k].icon); renderInv();
   });
+  // Использовать бонус «Бесплатная игра»: выбрать предстоящую игру → выдать билет с
+  // активным QR (бесплатный вход) → списать бонус. Билет виден и на экране игры.
+  function useFreeGame(){
+    if((bonusInv().free||0)<=0){ toast('Нет бесплатных игр в инвентаре','i-info'); return; }
+    const keys=Object.keys(GAMES).filter(k=>GAMES[k] && GAMES[k].status!=='done' && !myTicket(k));
+    if(!keys.length){ toast('Сейчас нет предстоящих игр для бонуса','i-info'); return; }
+    const opts=keys.map(k=>{ const g=GAMES[k];
+      return '<button class="fg-pick" data-fg="'+k+'"><span class="fg-t">'+escH(g.title)+'</span>'+
+             '<span class="fg-d">'+escH(g.date)+' · '+escH(g.time)+' · '+escH(cleanPlace(g.place))+'</span>'+
+             '<svg class="svgico fg-chev"><use href="#i-chev"/></svg></button>';
+    }).join('');
+    openModal('<div class="modal-ico violet"><svg><use href="#i-ticket"/></svg></div>'+
+      '<h3>Бесплатная игра</h3><p>Выберите игру — билет придёт с активным QR, а бонус спишется.</p>'+
+      '<div class="fg-list">'+opts+'</div>'+
+      '<div class="modal-actions"><button class="btn btn-ghost" data-modal-close>Отмена</button></div>');
+    modalCard.querySelectorAll('[data-fg]').forEach(function(b){ b.addEventListener('click',function(){
+      const key=b.dataset.fg;
+      if((bonusInv().free||0)<=0){ toast('Нет бесплатных игр','i-info'); closeModal(); return; }
+      bonusInv().free--; saveSim();                       // списываем бонус
+      const t=issueTicket(key);                           // билет + бронь места (бесплатно)
+      sendToBackend('use-bonus',{bonus:'free',gameKey:key,tgId:ME.id});
+      renderInv();
+      // показать билет с активным QR
+      openModal('<div class="fg-done">Бонус использован</div>'+ticketCardHTML(t)+
+        '<div class="modal-actions"><button class="btn btn-primary" data-modal-close><svg class="svgico"><use href="#i-check"/></svg>Готово</button></div>');
+      toast('Бесплатная игра активирована — билет готов','i-ticket');
+    }); });
+  }
   function addBonus(k){ const inv=bonusInv(); inv[k]=(inv[k]||0)+1; saveSim(); renderInv(); }
 
   /* =====================================================================
@@ -3994,18 +4075,27 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   }
   function renderRating(){
     seedMe();
-    const ranked=allRanked();
+    // Если общая база подгружена — показываем ВСЕХ зарегистрированных игроков клуба
+    // (сообщество), иначе — локальный рейтинг (вне Telegram / до загрузки).
+    const fromDb = (RATING_DB && RATING_DB.length!==undefined);
+    const ranked = fromDb
+      ? RATING_DB.slice().sort(function(a,b){ return (b.s.pts-a.s.pts) || (b.s.games-a.s.games); })
+      : allRanked();
     const pod=$('ratingPodium'), box=$('ratingList');
+    // Счётчик сообщества (сколько всего зарегистрировано) — виден, когда данные из базы.
+    const totalTag = fromDb ? '<div class="rk-total"><svg class="svgico"><use href="#i-user"/></svg>В клубе зарегистрировано: <b>'+ranked.length+'</b></div>' : '';
     if(!ranked.length){
       if(pod)pod.innerHTML='';
-      if(box)box.innerHTML='<div class="rk-empty"><svg class="svgico"><use href="#i-crown"/></svg><span>Рейтинг пока пуст. Сыграйте первую игру — и появитесь здесь. Баллы начисляются автоматически.</span></div>';
+      if(box)box.innerHTML = totalTag + (fromDb
+        ? '<div class="rk-empty"><svg class="svgico"><use href="#i-crown"/></svg><span>Пока никто не зарегистрировался в приложении. Как только игроки войдут через Telegram — появятся здесь.</span></div>'
+        : '<div class="rk-empty"><svg class="svgico"><use href="#i-crown"/></svg><span>Рейтинг пока пуст. Сыграйте первую игру — и появитесь здесь. Баллы начисляются автоматически.</span></div>');
       return;
     }
     const top=ranked.slice(0,3);
     if(pod){ pod.innerHTML = podCell(2,top[1],'second')+podCell(1,top[0],'first')+podCell(3,top[2],'third'); try{hydrateArt(pod);}catch(e){} }
     const rest=ranked.slice(3);
     if(box){
-      box.innerHTML = rest.map(function(e,idx){ const me=e.id===ME.id, s=e.s;
+      box.innerHTML = totalTag + rest.map(function(e,idx){ const me=e.id===ME.id, s=e.s;
         return '<div class="frame rk-row '+(me?'me':'')+'"><div class="pos">'+(idx+4)+'</div>'+
           '<div class="rav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>'+
           '<div class="rinfo"><div class="rn">'+escH(me?ME.first_name:s.name)+(me?'<span class="youtag">Вы</span>':'')+'</div><div class="rs">'+winrate(s)+'% побед · '+s.games+' '+plural(s.games,'игра','игры','игр')+'</div></div>'+
@@ -4140,6 +4230,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   applyAssets();   // wire all static data-asset slots (header cat, hero, portraits, podium, rating)
   catLook('home'); // prime cat gaze
   loadGames();     // подтянуть игры из ОБЩЕЙ базы (Supabase) — общий список для всех
+  backendInit();   // зарегистрировать игрока в общей базе (по подписи Telegram) + подтянуть сообщество/рейтинг
 })();
 </script>
 </body>
