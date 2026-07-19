@@ -89,7 +89,12 @@ Deno.serve(async (req) => {
     // --- Публичные действия (без Telegram-авторизации): список игр и рейтинг ---
     if (action === "games") {
       const { data } = await sb.from("games").select("*").eq("archived", false).order("gdate");
-      return json({ games: data ?? [] });
+      // реальные счётчики записей по каждой игре (общие для всех)
+      const { data: su } = await sb.from("signups").select("game_id, paid");
+      const cnt: Record<string, number> = {}, paidCnt: Record<string, number> = {};
+      (su ?? []).forEach((s: any) => { cnt[s.game_id] = (cnt[s.game_id] || 0) + 1; if (s.paid) paidCnt[s.game_id] = (paidCnt[s.game_id] || 0) + 1; });
+      const games = (data ?? []).map((g: any) => ({ ...g, signup_count: cnt[g.id] || 0, paid_count: paidCnt[g.id] || 0 }));
+      return json({ games });
     }
     if (action === "leaderboard") {
       // ВСЕ зарегистрированные игроки клуба (а не только сыгравшие) —

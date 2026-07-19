@@ -476,6 +476,14 @@ body.style-winter .bar i{
 .ros-more{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11.5px;
   color:var(--mist-2);background:rgba(255,255,255,.03);border:1px solid var(--line)}
 .bk-sub{font-size:12px;color:var(--mist-2);text-align:center;margin-top:8px}
+.bk-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:26px 12px;margin-top:14px;
+  color:var(--mist);font-size:13.5px}
+.bk-loading .spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--line-2);border-top-color:var(--violet);
+  display:inline-block;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bk-note{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:10px 12px;border-radius:12px;
+  font-size:12px;line-height:1.45;color:#cdbcff;background:rgba(94,140,255,.08);border:1px solid var(--line-2)}
+.bk-note svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px;color:var(--blue)}
 .bk-demo{display:flex;align-items:center;gap:7px;margin-top:16px;padding-top:12px;border-top:1px dashed var(--line);
   font-size:11px;color:var(--mist-2);flex-wrap:wrap}
 .bk-demo>span{letter-spacing:.08em;text-transform:uppercase}
@@ -2988,8 +2996,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     document.getElementById('gd-seats').textContent=g.seats;
     document.getElementById('gd-format').textContent=g.format;
     document.getElementById('gd-desc').textContent=g.desc;
-    // Запись → оплата → билет: единый рендер по состоянию предзаписи игры.
-    renderBooking(key, g);
+    // Запись → оплата → билет: подтягиваем ОБЩИЕ записи из базы и рендерим.
+    openBooking(key, g);
   }
 
   /* ---------- АДМИН: изменение цены события ----------
@@ -3350,7 +3358,10 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       img: r.img||undefined, special: !!r.special,
       motif: r.special?'i-compass':'m-moon',
       tags: r.special?(r.descr||''):undefined,
-      seats:(r.capacity||0)+' из '+(r.capacity||0), seatsN:r.capacity||0
+      // РЕАЛЬНЫЕ свободные места = вместимость − записавшиеся (общий счётчик из базы)
+      signup_count:r.signup_count||0,
+      seats: Math.max(0,(r.capacity||0)-(r.signup_count||0))+' из '+(r.capacity||0),
+      seatsN: Math.max(0,(r.capacity||0)-(r.signup_count||0))
     };
   }
   // Загрузить игры из базы и перерисовать (общий список для всех).
@@ -3853,6 +3864,25 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function myTicket(k){ return SIM.tickets.find(t=>t.gameKey===k&&t.ownerId===ME.id); }
   function signCount(k){ return simGame(k).players.length; }
 
+  /* ===== ОБЩИЕ записи на игру из базы (Supabase). Это ИСТОЧНИК ИСТИНЫ:
+     кто записался — видят все, счётчик общий. Локальный SIM.players больше
+     не решает — его наполняет сервер. ===== */
+  const SIGNUPS_LOADED={};        // gameId -> true, когда список подтянут с сервера
+  let signupErr='';               // ошибка backend (напр. открыто вне Telegram)
+  function mapSignups(list){ return (list||[]).map(function(s){ return {id:s.tg_id,name:(s.users&&s.users.first_name)||'Игрок',paid:!!s.paid}; }); }
+  function beMsg(res){ const e=(res&&res.error)?String(res.error):''; return /initData|no user|bad/i.test(e) ? 'Запись работает в Telegram Mini App (откройте бота).' : 'Не получилось записаться — попробуйте ещё раз.'; }
+  async function refreshSignups(key){
+    const res = await BACKEND.call('signups',{gameId:key});
+    if(res && Array.isArray(res.signups)){ simGame(key).players=mapSignups(res.signups); signupErr=''; }
+    else { signupErr=(res&&res.error)?String(res.error):'нет связи с базой'; }
+    SIGNUPS_LOADED[key]=true;
+    if(bkKey===key) renderBooking(key);
+  }
+  function openBooking(key,g){
+    bkKey=key; const box=$('booking'); if(box) box.innerHTML='<div class="bk-loading"><span class="spin"></span> Загружаем записи…</div>';
+    refreshSignups(key);
+  }
+
   // helpers
   function escH(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function initial(n){ return String(n).trim().charAt(0).toUpperCase(); }
@@ -3901,20 +3931,21 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     bkKey=key; const box=$('booking'); if(!box)return;
     g=g||GAMES[key]||PAST[key]; if(!g){box.innerHTML='';return;}
     if(g.status==='done'){ box.innerHTML='<div class="status-line paid"><svg class="svgico"><use href="#i-check"/></svg>Игра завершена.</div>'; return; }
-    const players=simGame(key).players;
+    const MAXP=+g.capacity||MAX_PLAYERS, MINP=+g.min_players||MIN_PLAYERS;  // стол/порог из настроек игры
+    const players=simGame(key).players;                // ОБЩИЙ список записавшихся (из базы)
     const count=players.length;                       // всего записей (стол + резерв)
-    const mainCount=Math.min(count,MAX_PLAYERS);       // за столом
-    const reserveCount=Math.max(0,count-MAX_PLAYERS);  // в очереди-резерве
-    const confirmed=count>=MIN_PLAYERS;                // «игре быть»
-    const full=mainCount>=MAX_PLAYERS;
+    const mainCount=Math.min(count,MAXP);              // за столом
+    const reserveCount=Math.max(0,count-MAXP);         // в очереди-резерве
+    const confirmed=count>=MINP;                       // «игре быть»
+    const full=mainCount>=MAXP;
     const myIdx=players.findIndex(p=>p.id===ME.id);
-    const inList=myIdx>=0, inReserve=myIdx>=MAX_PLAYERS;
+    const inList=myIdx>=0, inReserve=myIdx>=MAXP;
     const tk=myTicket(key);
-    const need=Math.max(0,MIN_PLAYERS-count);
-    const pct=Math.min(100,Math.round(mainCount/MAX_PLAYERS*100));
-    const startPct=Math.round(MIN_PLAYERS/MAX_PLAYERS*100);
+    const need=Math.max(0,MINP-count);
+    const pct=Math.min(100,Math.round(mainCount/MAXP*100));
+    const startPct=Math.round(MINP/MAXP*100);
 
-    const main=players.slice(0,MAX_PLAYERS);
+    const main=players.slice(0,MAXP);
     const shown=main.slice(0,7).map(p=>{ const me=p.id===ME.id;
       return '<span class="ros-chip'+(me?' me':'')+'"><i>'+initial(me?'Вы':p.name)+'</i>'+escH(me?'Вы':p.name)+(p.paid?'<svg class="svgico rc-ok"><use href="#i-check"/></svg>':'')+'</span>';
     }).join('');
@@ -3925,12 +3956,12 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
               : confirmed ? '<b class="ok">игра состоится</b> · есть места'
               : 'в предзаписи';
     const hint = full
-        ? 'Стол собран (24). Открыт <b>резерв</b>: если кто-то выпишется, первый из очереди займёт освободившееся место.'
+        ? 'Стол собран ('+MAXP+'). Открыт <b>резерв</b>: если кто-то выпишется, первый из очереди займёт место.'
         : confirmed
-          ? 'Игра состоится. Свободно <b>'+(MAX_PLAYERS-mainCount)+'</b> '+plural(MAX_PLAYERS-mainCount,'место','места','мест')+' из 24.'
-          : 'Нужно ещё <b>'+need+'</b> '+plural(need,'игрок','игрока','игроков')+' до старта (минимум 10). Всего стол — 24.';
+          ? 'Игра состоится. Свободно <b>'+(MAXP-mainCount)+'</b> '+plural(MAXP-mainCount,'место','места','мест')+' из '+MAXP+'.'
+          : 'Нужно ещё <b>'+need+'</b> '+plural(need,'игрок','игрока','игроков')+' до старта (минимум '+MINP+'). Всего стол — '+MAXP+'.';
     const head='<div class="bk-count">'+
-        '<div class="bk-c-row"><span class="bk-c-num">'+mainCount+'<span class="bk-c-min"> / '+MAX_PLAYERS+' мест</span></span>'+
+        '<div class="bk-c-row"><span class="bk-c-num">'+mainCount+'<span class="bk-c-min"> / '+MAXP+' мест</span></span>'+
         '<span class="bk-c-lab">'+lab+'</span></div>'+
         '<div class="bk-bar'+(full?' fullb':confirmed?' full':'')+'"><i style="width:'+pct+'%"></i><span class="bk-tick" style="left:'+startPct+'%" title="старт"></span></div>'+
         '<div class="bk-c-hint">'+hint+'</div>'+
@@ -3944,10 +3975,10 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         ? '<button class="btn btn-primary mt" data-act="signup"><svg class="svgico"><use href="#i-clock"/></svg>Встать в резерв</button>'+
           '<div class="bk-sub">Стол полон. В резерве вы займёте место, если кто-то выпишется.</div>'
         : '<button class="btn btn-primary mt" data-act="signup"><svg class="svgico"><use href="#i-diamond"/></svg>Записаться в предзапись</button>'+
-          '<div class="bk-sub">Бесплатно. Оплата — когда наберётся '+MIN_PLAYERS+' игроков.</div>';
+          '<div class="bk-sub">Бесплатно. Оплата — когда наберётся '+MINP+' игроков.</div>';
     }else if(inReserve){
-      const q=myIdx-MAX_PLAYERS+1;
-      action='<div class="status-line wait"><svg class="svgico"><use href="#i-clock"/></svg>Вы в резерве · <b>'+q+'-'+(q===1?'й':'й')+' в очереди</b>. Освободится место — вы за столом.</div>'+
+      const q=myIdx-MAXP+1;
+      action='<div class="status-line wait"><svg class="svgico"><use href="#i-clock"/></svg>Вы в резерве · <b>'+q+'-й в очереди</b>. Освободится место — вы за столом.</div>'+
              '<button class="btn btn-ghost mt" data-act="cancel"><svg class="svgico"><use href="#i-x"/></svg>Выйти из резерва</button>';
     }else if(!confirmed){
       action='<div class="status-line wait"><svg class="svgico"><use href="#i-clock"/></svg>Вы в предзаписи. Ждём ещё '+need+' '+plural(need,'игрока','игроков','игроков')+'.</div>'+
@@ -3957,21 +3988,34 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
              '<button class="btn btn-gold mt" data-act="pay"><svg class="svgico"><use href="#i-ticket"/></svg>Оплатить '+g.price+'</button>'+
              '<button class="btn btn-ghost mt" data-act="cancel">Отменить запись</button>';
     }
-    // Демо-кнопки — только владельцу (в браузере is-admin=true, обычным игрокам в Telegram скрыто).
-    const demo=document.body.classList.contains('is-admin')?'<div class="bk-demo"><span>Демо:</span><button data-act="demo-add">+ игрок</button><button data-act="demo-rm">− игрок</button><button data-act="demo-reset">сброс</button></div>':'';
-    box.innerHTML=head+action+demo;
+    // Если backend недоступен (например, открыто в браузере вне Telegram) — подсказка.
+    const note = signupErr ? '<div class="bk-note"><svg class="svgico"><use href="#i-info"/></svg>Записи синхронизируются в Telegram Mini App. Откройте приложение через бота.</div>' : '';
+    box.innerHTML=head+action+note;
   }
 
-  $('booking')&&$('booking').addEventListener('click',e=>{
+  $('booking')&&$('booking').addEventListener('click',async e=>{
     const b=e.target.closest('[data-act]'); if(!b||!bkKey)return;
-    const act=b.dataset.act,key=bkKey,g=GAMES[key]||PAST[key],ps=simGame(key).players;
-    if(act==='signup'){ if(!myEntry(key))ps.push({id:ME.id,name:ME.first_name,paid:false}); saveSim(); renderBooking(key,g); const idx=ps.findIndex(p=>p.id===ME.id); toast(idx>=MAX_PLAYERS?'Вы в резерве — ждём свободное место':(signCount(key)>=MIN_PLAYERS?'Вы записаны — оплата открыта!':'Вы в предзаписи'),'i-check'); }
-    else if(act==='cancel'){ const total=ps.length; const i=ps.findIndex(p=>p.id===ME.id); const wasMain=i>=0&&i<MAX_PLAYERS; if(i>=0)ps.splice(i,1); saveSim(); renderBooking(key,g); toast(wasMain&&total>MAX_PLAYERS?'Вы вышли — первый из резерва занял место':'Запись отменена','i-x'); }
-    else if(act==='pay'){ processPayment({title:g.title,amount:g.price,kind:'game',onSuccess:()=>{ issueTicket(key); renderBooking(key,g); toast('Билет выдан','i-ticket'); const el=$('booking').querySelector('.ticket'); el&&el.scrollIntoView({behavior:'smooth',block:'center'}); }}); }
+    const act=b.dataset.act,key=bkKey,g=GAMES[key]||PAST[key];
+    const MAXP=+g.capacity||MAX_PLAYERS, MINP=+g.min_players||MIN_PLAYERS;
+    if(act==='signup'||act==='cancel'){
+      b.disabled=true;
+      const res=await BACKEND.call(act==='signup'?'signup':'cancelSignup',{gameId:key});
+      if(res && Array.isArray(res.signups)){
+        simGame(key).players=mapSignups(res.signups); signupErr=''; renderBooking(key,g);
+        loadGames();   // обновить счётчики свободных мест в общем списке
+        if(act==='signup'){ const idx=simGame(key).players.findIndex(p=>p.id===ME.id);
+          toast(idx>=MAXP?'Вы в резерве — ждём свободное место':(simGame(key).players.length>=MINP?'Вы записаны — оплата открыта!':'Вы в предзаписи'),'i-check'); }
+        else toast('Запись отменена','i-x');
+      } else { toast(beMsg(res),'i-info'); if(b)b.disabled=false; }
+    }
+    else if(act==='pay'){ processPayment({title:g.title,amount:g.price,kind:'game',onSuccess:async()=>{
+      const res=await BACKEND.call('pay',{gameId:key});
+      if(res && res.ticket){ SIM.tickets.push({code:res.ticket.code,sig:res.ticket.sig,gameKey:key,title:g.title,date:g.date,time:g.time,place:g.place,guest:ME.first_name,ownerId:ME.id,used:false,usedAt:null,issuedAt:Date.now()}); saveSim(); }
+      else { issueTicket(key); }
+      await refreshSignups(key); renderBooking(key,g); toast('Билет выдан','i-ticket');
+      const el=$('booking').querySelector('.ticket'); el&&el.scrollIntoView({behavior:'smooth',block:'center'});
+    }}); }
     else if(act==='show-ticket'){ const t=myTicket(key); if(t)openTicketModal(t); }
-    else if(act==='demo-add'){ const used=ps.map(p=>p.name); const nm=FAKE_NAMES.find(n=>used.indexOf(n)<0)||('Гость '+(ps.length+1)); ps.push({id:3000+ps.length+Math.floor(Math.random()*900),name:nm,paid:false}); saveSim(); renderBooking(key,g); }
-    else if(act==='demo-rm'){ for(let i=ps.length-1;i>=0;i--){ if(ps[i].id!==ME.id){ps.splice(i,1);break;} } saveSim(); renderBooking(key,g); }
-    else if(act==='demo-reset'){ SIM=simDefault(); saveSim(); renderBooking(key,g); toast('Демо сброшено','i-refresh'); }
   });
 
   function openTicketModal(t){
