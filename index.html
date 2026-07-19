@@ -1434,6 +1434,16 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 .admf-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
 .admf-actions .btn{flex:1;justify-content:center;min-width:120px}
 .admf-actions .admf-del{flex:0 0 auto;min-width:0;color:#ff9db0}
+/* крестик удаления прошедшего события (только владельцу) */
+.gcard{position:relative}
+.gcard-del{position:absolute;top:8px;right:8px;z-index:5;width:28px;height:28px;border-radius:9px;
+  display:grid;place-items:center;cursor:pointer;font:700 17px/1 "Manrope",sans-serif;
+  color:#ff9db0;background:rgba(18,6,14,.66);border:1px solid rgba(255,120,140,.4);
+  backdrop-filter:blur(4px);transition:.16s}
+.gcard-del:hover{background:rgba(226,80,104,.28);color:#fff;border-color:rgba(255,120,140,.7)}
+.gcard-del:active{transform:scale(.9)}
+/* когда есть крестик удаления — прячем бейдж «Завершена» (он и так в «Прошедших») */
+.gcard:has(.gcard-del) .badge{display:none}
 </style>
 </head>
 <body>
@@ -2776,7 +2786,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const _past=isPastGame(g);
     const bCls=_past?'done':g.status;
     const bTxt=_past?(g.status==='done'?(g.statusTxt||'Игра завершена'):'Завершена'):g.statusTxt;
-    if(g.special) return `<div class="frame gcard gcard-trip" data-go="game-detail" data-game="${key}">
+    // Крестик удаления — только владельцу и только на ПРОШЕДШИХ (чистка архива).
+    const del=(_past&&amOwner())?`<button class="gcard-del" data-del-past="${key}" aria-label="Удалить">×</button>`:'';
+    if(g.special) return `<div class="frame gcard gcard-trip" data-go="game-detail" data-game="${key}">${del}
       <div class="gthumb trip-thumb"><span class="eclipse"></span></div>
       <div class="ginfo">
         <span class="trip-badge"><svg class="svgico"><use href="#i-compass"/></svg>Выездной ивент</span>
@@ -2787,7 +2799,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         <div class="gseats"><svg class="svgico"><use href="#i-users"/></svg>Свободно мест: ${g.seats}</div>
       </div>
     </div>`;
-    return `<div class="frame gcard" data-go="game-detail" data-game="${key}">
+    return `<div class="frame gcard" data-go="game-detail" data-game="${key}">${del}
       <div class="gthumb"><svg><use href="#${g.motif}"/></svg>${assetImgHTML(g.img,'',g.pos?('object-position:'+g.pos):'')}<div class="glo"></div></div>
       <div class="ginfo">
         <div class="ghead"><h3>${g.title}</h3><span class="badge ${bCls}">${bTxt}</span></div>
@@ -2838,6 +2850,25 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
                  Object.keys(PAST).map(k=>gameCard(k,PAST[k])).join('');
     el.innerHTML = html || '<p class="intro">Пока нет завершённых игр.</p>';
     hydrateArt(el); }
+  // Владелец удаляет прошедшее событие крестиком (чистка архива). Для игр из базы —
+  // архивируем в базе (исчезнет у всех); для локального демо-архива — убираем локально.
+  function deletePastGame(key){
+    const g=GAMES[key]||PAST[key]; if(!g)return;
+    openModal('<div class="modal-ico bad"><svg><use href="#i-trash"/></svg></div>'+
+      '<h3>Удалить из прошедших?</h3>'+
+      '<p>«'+esc(g.title)+'»<br><span style="font-size:12.5px">'+esc(g.date)+'</span><br>Событие исчезнет из списка у всех.</p>'+
+      '<div class="modal-actions"><button class="btn btn-primary" id="delPastYes"><svg class="svgico"><use href="#i-trash"/></svg>Удалить</button><button class="btn btn-ghost" data-modal-close>Отмена</button></div>');
+    modalCard.querySelector('#delPastYes').addEventListener('click',function(){
+      if(GAMES[key]){ delete GAMES[key]; saveGames();
+        BACKEND.call('adminDeleteGame',{gameId:key}).then(r=>{ if(r&&r.ok)loadGames(); else if(r&&r.error)toast(ownerSaveErr(r),'i-info'); });
+      } else if(PAST[key]){ delete PAST[key]; }
+      syncSchedule(); closeModal(); toast('Удалено из прошедших','i-check');
+    });
+  }
+  // клик по крестику в списке прошедших — не открывать деталь, а удалить
+  { const lp=document.getElementById('list-past'); if(lp) lp.addEventListener('click',function(e){
+      const d=e.target.closest('[data-del-past]'); if(d){ e.stopPropagation(); e.preventDefault(); deletePastGame(d.dataset.delPast); } }); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function syncSchedule(){ renderHome(); renderUpcoming(); renderAnnouncements(); renderPast(); }
   syncSchedule();
   setInterval(syncSchedule, 7*24*60*60*1000);   // раз в неделю
@@ -3327,7 +3358,11 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   if(isOwnerUser(ME)) document.body.classList.add('is-admin');
   // Владелец (я): всё разблокировано — достижения, аватарки, зимний стиль.
   // Обычные игроки играют по-честному (открывают за достижения/покупку).
-  function amOwner(){ return isOwnerUser(ME) || document.body.classList.contains('is-admin'); }
+  function amOwner(){
+    // безопасно даже до инициализации ME (ранний рендер) — не роняем скрипт
+    if(document.body.classList.contains('is-admin')) return true;
+    try{ return isOwnerUser(ME); }catch(e){ return false; }
+  }
   // Владелец профиля: приватные разделы (аватарки/бонусы/сундуки/история) видит только он.
   function isOwner(profileTgId){ return profileTgId === ME.id; }
   // Username виден только администратору клуба.
