@@ -2380,6 +2380,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 <!-- ============================== SCRIPT ============================== -->
 <script>
 (function(){
+  // Сразу вернуть купленный стиль интерфейса (пока показывается сплэш — мигания не видно).
+  try{ if(localStorage.getItem('avemafia_style')==='winter') document.body.classList.add('style-winter'); }catch(e){}
   /* =====================================================================
      ART ASSETS — real images live in /assets. Each slot shows its
      premium placeholder until the matching file loads, then fades the
@@ -3447,6 +3449,12 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(res && res.isOwner){ document.body.classList.add('is-admin');   // владелец подтверждён сервером
       try{ renderAch(); renderAvatars(); }catch(e){}                   // всё разблокировать для владельца
     }
+    // Аватарка из общей базы — только если на этом устройстве ещё нет своего выбора
+    // (чтобы работало и с другого телефона, но не сбрасывало свежий локальный выбор).
+    if(res && res.me && res.me.avatar_id){
+      let hasLocal=false; try{ hasLocal=!!localStorage.getItem('avemafia_avatar'); }catch(e){}
+      if(!hasLocal){ try{ const a=AVATARS.find(x=>x.id===res.me.avatar_id); if(a&&avUnlocked(a)) setActiveAvatar(a.id); }catch(e){} }
+    }
     // после регистрации нового игрока — обновить список сообщества
     loadLeaderboard();
     return res;
@@ -3501,10 +3509,11 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   /* ---------- стиль интерфейса (покупные скины) ----------
      Кнопка-«солнце» в профиле открывает выбор оформления.
      Пример покупного скина — «Зимний» (ледяная палитра). */
-  let currentStyle='classic';
+  let currentStyle=(function(){ try{ return localStorage.getItem('avemafia_style')||'classic'; }catch(e){ return 'classic'; } })();
   function applyStyle(key){
     document.body.classList.toggle('style-winter', key==='winter');
     currentStyle=key;
+    try{ localStorage.setItem('avemafia_style', key); }catch(e){}   // запомнить выбор — вернётся при следующем входе
   }
   // Стиль доступен: базовый, куплен, ИЛИ ты владелец (тебе всё открыто).
   function styleUnlocked(key){ return key==='classic' || amOwner() || (SIM.styles&&SIM.styles.indexOf(key)>=0); }
@@ -3808,7 +3817,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function setActiveAvatar(id){
     const a=AVATARS.find(x=>x.id===id);if(!a||!avUnlocked(a))return;
     AVATARS.forEach(x=>x.active=false);a.active=true;
-    sendToBackend('set-avatar',{avatar:id,tgId:ME.id});
+    try{ localStorage.setItem('avemafia_avatar', id); }catch(e){}   // запомнить выбор — вернётся при следующем входе
+    sendToBackend('saveAvatar',{id:id});                            // и в общую базу (чтобы работало с любого устройства)
     // hero + публичный портрет профиля (его видят другие игроки)
     const hp=$('avHeroPort');
     hp.className='av-port rar-'+a.rar;
@@ -4412,7 +4422,12 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 
   checkBirthday();     // если сегодня ДР игрока — начислить сундук (раз в год)
   refreshProgress();   // старт: профиль, рейтинг, достижения, аватарки, сундуки/бонусы
-  try{ const _av=AVATARS.find(x=>x.active)||AVATARS[0]; if(_av)setActiveAvatar(_av.id); }catch(e){}   // синхронизировать «Активная аватарка»
+  try{                                                                 // вернуть выбранную ранее аватарку (сохранённую)
+    let _savedId=null; try{ _savedId=localStorage.getItem('avemafia_avatar'); }catch(e){}
+    let _av=(_savedId&&AVATARS.find(x=>x.id===_savedId))||AVATARS.find(x=>x.active)||AVATARS[0];
+    if(_av&&!avUnlocked(_av)) _av=AVATARS.find(x=>x.active)||AVATARS[0];  // если вдруг ещё не открыта — не падаем
+    if(_av) setActiveAvatar(_av.id);
+  }catch(e){}
   applyAssets();   // wire all static data-asset slots (header cat, hero, portraits, podium, rating)
   catLook('home'); // prime cat gaze
   loadGames();     // подтянуть игры из ОБЩЕЙ базы (Supabase) — общий список для всех
