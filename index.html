@@ -2912,10 +2912,11 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     {n:"Скрытое достижение", d:"Раскроется в игре",          i:"ach-key",   t:"v",r:"legend",cond:s=>s.wins>=10,hidden:1}
   ];
   function tw(s,k){ return (s&&s.winsByTeam&&s.winsByTeam[k])||0; }   // побед за команду
+  function achDone(a,st){ return amOwner() || a.cond(st); }   // владельцу — все открыты
   function achHTML(filter, st){
-    return ACH.filter(a=>filter==='all'||(filter==='got'&&a.cond(st))||(filter==='lock'&&!a.cond(st))
+    return ACH.filter(a=>filter==='all'||(filter==='got'&&achDone(a,st))||(filter==='lock'&&!achDone(a,st))
         ||(['common','rare','epic','legend'].includes(filter)&&a.r===filter)).map(a=>{
-      const got=a.cond(st), lock=got?'':' lock';
+      const got=achDone(a,st), lock=got?'':' lock';
       const name=(!got&&a.hidden)?'Скрытое':a.n;
       const desc=(!got&&a.hidden)?'Откроется в игре':a.d;
       return `<div class="achc rar-${a.r}"><div class="achi ${a.t}${lock}"><svg><use href="#${a.i}"/></svg>${got?'':'<svg class="locki"><use href="#i-lock"/></svg>'}</div><span>${name}<span class="desc">${desc}</span><span class="rar-pill rar-${a.r}">${RAR[a.r]}</span></span></div>`;
@@ -3324,6 +3325,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     return false;
   }
   if(isOwnerUser(ME)) document.body.classList.add('is-admin');
+  // Владелец (я): всё разблокировано — достижения, аватарки, зимний стиль.
+  // Обычные игроки играют по-честному (открывают за достижения/покупку).
+  function amOwner(){ return isOwnerUser(ME) || document.body.classList.contains('is-admin'); }
   // Владелец профиля: приватные разделы (аватарки/бонусы/сундуки/история) видит только он.
   function isOwner(profileTgId){ return profileTgId === ME.id; }
   // Username виден только администратору клуба.
@@ -3405,7 +3409,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(!BACKEND.enabled) return null;
     let prof=null; try{ prof=JSON.parse(localStorage.getItem('avemafia_profile')||'null'); }catch(e){}
     const res = await BACKEND.call('init', prof?{profile:prof}:{});
-    if(res && res.isOwner) document.body.classList.add('is-admin');   // владелец подтверждён сервером
+    if(res && res.isOwner){ document.body.classList.add('is-admin');   // владелец подтверждён сервером
+      try{ renderAch(); renderAvatars(); }catch(e){}                   // всё разблокировать для владельца
+    }
     // после регистрации нового игрока — обновить список сообщества
     loadLeaderboard();
     return res;
@@ -3465,12 +3471,19 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     document.body.classList.toggle('style-winter', key==='winter');
     currentStyle=key;
   }
+  // Стиль доступен: базовый, куплен, ИЛИ ты владелец (тебе всё открыто).
+  function styleUnlocked(key){ return key==='classic' || amOwner() || (SIM.styles&&SIM.styles.indexOf(key)>=0); }
+  function styleMeta(key){
+    if(currentStyle===key) return 'Активен';
+    if(key==='classic') return 'Базовый · бесплатно';
+    if(amOwner()) return 'Открыто · владелец';
+    if(styleUnlocked(key)) return 'Открыт';
+    return 'Премиум · 299 ₽';
+  }
   function openStylePicker(){
     const styles=[
-      {key:'classic',name:'Классический',sw:'sw-classic',
-        meta: currentStyle==='classic'?'Активен':'Базовый · бесплатно'},
-      {key:'winter', name:'Зимний ❄',    sw:'sw-winter',
-        meta: currentStyle==='winter' ?'Активен':'Премиум · 299 ₽'}
+      {key:'classic',name:'Классический',sw:'sw-classic',meta:styleMeta('classic')},
+      {key:'winter', name:'Зимний ❄',    sw:'sw-winter', meta:styleMeta('winter')}
     ];
     openModal(
       '<div class="modal-ico violet"><svg><use href="#i-gear"/></svg></div>'+
@@ -3486,6 +3499,12 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     );
     modalCard.querySelectorAll('[data-style]').forEach(b=>b.addEventListener('click',()=>{
       const k=b.dataset.style;
+      if(!styleUnlocked(k)){   // не куплен и не владелец → покупка
+        processPayment({title:'Стиль интерфейса «Зимний»',amount:'299 ₽',kind:'style',onSuccess:()=>{
+          if(!SIM.styles)SIM.styles=[]; SIM.styles.push(k); saveSim(); applyStyle(k); closeModal(); toast('Стиль «Зимний» открыт ❄','i-check');
+        }});
+        return;
+      }
       applyStyle(k);
       closeModal();
       toast(k==='winter'?'Стиль «Зимний» применён ❄':'Классический стиль','i-check');
@@ -3730,7 +3749,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   ];
   const RAR_LABEL={common:"Обычная",rare:"Редкая",epic:"Эпическая",legend:"Легендарная"};
   // Аватарка открыта, если базовая, куплена (SIM.avatars) или заработано её достижение.
-  function avUnlocked(a){ return !!(a.free || (SIM.avatars&&SIM.avatars.indexOf(a.id)>=0) || (a.needAch&&achEarned(a.needAch))); }
+  function avUnlocked(a){ return amOwner() || !!(a.free || (SIM.avatars&&SIM.avatars.indexOf(a.id)>=0) || (a.needAch&&achEarned(a.needAch))); }
   function renderAvatars(){
     $('avGrid').innerHTML=AVATARS.map(a=>{
       const unlocked=avUnlocked(a);
@@ -4135,7 +4154,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   // Новый игрок стартует с НУЛЯ (рейтинг и игры). Баллы копятся по мере игр.
   function seedMe(){ return pstat(ME.id, ME.first_name); }   // новый игрок = все нули (см. pstat)
   // Достижение засчитано, если его условие выполнено по статистике игрока.
-  function achEarned(name){ const a=(typeof ACH!=='undefined')&&ACH.find(function(x){return x.n===name;}); return a?!!a.cond(seedMe()):false; }
+  function achEarned(name){ if(amOwner())return true; const a=(typeof ACH!=='undefined')&&ACH.find(function(x){return x.n===name;}); return a?!!a.cond(seedMe()):false; }
   // Все сыгравшие игроки (games>0), отсортированные по очкам — это и есть общий рейтинг.
   function allRanked(){ ensureStats(); return Object.keys(SIM.stats).map(function(id){ return {id:isNaN(+id)?id:+id, s:SIM.stats[id]}; }).filter(function(x){ return x.s.games>0; }).sort(function(a,b){ return (b.s.pts-a.s.pts) || (b.s.wins-a.s.wins); }); }
   function myPlace(){ const r=allRanked(); const i=r.findIndex(function(x){ return x.id===ME.id; }); return i>=0 ? i+1 : null; }
@@ -4152,12 +4171,12 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   }
   // Достижения: полный список + превью в профиле — из живой статистики игрока.
   function renderAch(){ const st=seedMe(); if(achFull)achFull.innerHTML=achHTML(achFilterCur, st); renderAchPreview(st);
-    const got=ACH.filter(function(a){return a.cond(st);}).length;
+    const got=ACH.filter(function(a){return achDone(a,st);}).length;
     setTxt('achGot', got); setTxt('achTotal', ACH.length);
     const bar=$('achBar'); if(bar)bar.style.width=Math.round(got/ACH.length*100)+'%';
   }
   function renderAchPreview(st){ const box=$('achPreview'); if(!box)return;
-    box.innerHTML=ACH.slice(0,6).map(function(a){ const got=a.cond(st); const name=(!got&&a.hidden)?'Скрытое':a.n;
+    box.innerHTML=ACH.slice(0,6).map(function(a){ const got=achDone(a,st); const name=(!got&&a.hidden)?'Скрытое':a.n;
       return '<div class="achc rar-'+a.r+'"><div class="achi '+a.t+(got?'':' lock')+'"><svg><use href="#'+a.i+'"/></svg>'+(got?'':'<svg class="locki"><use href="#i-lock"/></svg>')+'</div><span>'+escH(name)+'</span></div>';
     }).join('');
   }
