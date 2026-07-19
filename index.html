@@ -3019,13 +3019,17 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     modalCard.querySelector('#priceSave').addEventListener('click',()=>{
       const v=(modalCard.querySelector('#priceInput').value||'').replace(/[^\d]/g,'');
       if(!v){ toast('Введите цену','i-info'); return; }
-      g.price = (+v).toLocaleString('ru-RU')+' ₽';
-      document.getElementById('gd-price').textContent=g.price;
-      const pay=document.getElementById('bk-pay'); if(pay) pay.innerHTML='<svg class="svgico"><use href="#i-ticket"/></svg>Оплатить '+g.price;
-      sendToBackend('set-price',{game:currentGameKey,price:g.price,tgId:ME.id});
-      syncSchedule();               // обновить цену в карточках списков/анонсов
-      closeModal();
-      toast('Цена обновлена: '+g.price,'i-check');
+      const g0=GAMES[currentGameKey]||PAST[currentGameKey]; if(!g0){ closeModal(); return; }
+      g0.price=(+v).toLocaleString('ru-RU')+' ₽';
+      // оптимистично обновляем экран владельца
+      document.getElementById('gd-price').textContent=g0.price;
+      const pay=document.getElementById('bk-pay'); if(pay) pay.innerHTML='<svg class="svgico"><use href="#i-ticket"/></svg>Оплатить '+g0.price;
+      saveGames(); syncSchedule(); closeModal();
+      // СОХРАНЯЕМ В ОБЩУЮ БАЗУ (adminSaveGame) — цену увидят все.
+      BACKEND.call('adminSaveGame',{game:gameToDbRow(currentGameKey,g0)}).then(r=>{
+        if(r&&r.games){ applyDbGames(r.games); toast('Цена обновлена для всех: '+g0.price,'i-check'); }
+        else { toast(ownerSaveErr(r),'i-info'); }
+      });
     });
   }
   { const pe=document.getElementById('gdPriceEdit'); if(pe) pe.addEventListener('click',e=>{ e.stopPropagation(); editPrice(); }); }
@@ -3157,17 +3161,18 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       price:+price||0, capacity:+total||24, min_players:10, status,
       format:$('efFormat').value.trim(), level:$('efLevel').value.trim(), descr:$('efDesc').value.trim(),
       img:special?null:(img||null), special:!!special, archived:false };
-    BACKEND.call('adminSaveGame',{game:dbGame}).then(r=>{ if(r&&r.games)loadGames(); else if(r&&r.error)toast('В базу сохранит владелец из Telegram','i-info'); });
+    BACKEND.call('adminSaveGame',{game:dbGame}).then(r=>{
+      if(r&&r.games){ applyDbGames(r.games); renderAdmin(); toast((editingKey?'Событие обновлено':'Событие создано')+' — видно всем','i-check'); }
+      else { toast(ownerSaveErr(r),'i-info'); }
+    });
     syncSchedule(); renderAdmin();
-    toast(editingKey?'Событие обновлено':'Событие создано','i-check');
   }
   function deleteEvent(key){
     const g=GAMES[key]; if(!g)return;
     delete GAMES[key];
     saveGames();   // локальная копия
-    BACKEND.call('adminDeleteGame',{gameId:key}).then(r=>{ if(r&&r.ok)loadGames(); });
+    BACKEND.call('adminDeleteGame',{gameId:key}).then(r=>{ if(r&&r.ok){ loadGames(); toast('Событие удалено — у всех','i-check'); } else { toast(ownerSaveErr(r),'i-info'); } });
     syncSchedule(); renderAdmin();
-    toast('Событие удалено','i-check');
   }
   { const b=$('admNew'); if(b) b.addEventListener('click',()=>openEventForm(null)); }
   { const b=$('efCancel'); if(b) b.addEventListener('click',renderAdmin); }
@@ -3364,14 +3369,35 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       seatsN: Math.max(0,(r.capacity||0)-(r.signup_count||0))
     };
   }
+  // Применить список игр из базы к фронту (общий источник истины) + перерисовать.
+  function applyDbGames(arr){
+    if(!Array.isArray(arr)) return;
+    Object.keys(GAMES).forEach(k=>delete GAMES[k]);
+    arr.forEach(r=>{ GAMES[r.id]=mapDbGame(r); });
+    saveGames();      // локальная копия (кэш)
+    syncSchedule();
+  }
+  // Фронтовый объект игры → строка БД (для сохранения владельцем).
+  function gameToDbRow(key,g){
+    const priceN = parseInt(String(g.price||'').replace(/[^\d]/g,''))||0;
+    let cap = +g.capacity||0;
+    if(!cap){ const m=String(g.seats||'').match(/из\s*(\d+)/); cap = m?+m[1]:24; }
+    return { id:key, title:g.title||'', gdate: ruToISO(g.date)||null, gtime:g.time||'',
+      place:g.place||'', price:priceN, capacity:cap||24, min_players:(+g.min_players)||10,
+      status:g.status||'soon', format:g.format||'', level:g.level||'', descr:g.desc||'',
+      img: g.special?null:(g.img||null), special:!!g.special, archived:false };
+  }
+  // Понятное сообщение, если сохранение в базу не удалось.
+  function ownerSaveErr(res){
+    const e=(res&&res.error)?String(res.error):'';
+    if(/owner/i.test(e)) return 'Сохранять игры может только владелец клуба (@Lovelias21).';
+    if(/initData|bad|no user/i.test(e)) return 'Правки сохраняются из Telegram. Откройте приложение через бота.';
+    return 'Не удалось сохранить в базу'+(e?(': '+e):' — нет связи');
+  }
   // Загрузить игры из базы и перерисовать (общий список для всех).
   async function loadGames(){
     const res = await BACKEND.call('games', {});
-    if(res && Array.isArray(res.games) && res.games.length){
-      Object.keys(GAMES).forEach(k=>delete GAMES[k]);
-      res.games.forEach(r=>{ GAMES[r.id]=mapDbGame(r); });
-      syncSchedule();
-    }
+    if(res && Array.isArray(res.games) && res.games.length){ applyDbGames(res.games); }
   }
   // ---- Регистрация игрока в ОБЩЕЙ базе (по подписи Telegram). Вызывается на старте
   //      и после завершения регистрации: сервер upsert'ит юзера → он попадает в рейтинг-сообщество. ----
@@ -4337,6 +4363,10 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   catLook('home'); // prime cat gaze
   loadGames();     // подтянуть игры из ОБЩЕЙ базы (Supabase) — общий список для всех
   backendInit();   // зарегистрировать игрока в общей базе (по подписи Telegram) + подтянуть сообщество/рейтинг
+  // Почти реальное время: периодически перечитываем игры из базы (правки владельца
+  // — цена/дата/время — появляются у всех сами) + при возврате в приложение.
+  setInterval(function(){ if(!document.hidden) loadGames(); }, 15000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) loadGames(); });
 })();
 </script>
 </body>
