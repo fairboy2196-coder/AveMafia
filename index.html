@@ -3330,12 +3330,30 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
      TELEGRAM MINI APP — заглушки интеграции (бэкенда пока нет)
      ===================================================================== */
   const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-  // TODO[telegram]: подключить скрипт https://telegram.org/js/telegram-web-app.js в <head>
-  // и инициализировать Mini App при загрузке.
+  // SDK Telegram подключён в <head>; здесь инициализируем Mini App.
   function tgInit(){
     if(!TG)return;            // вне Telegram работаем как обычный веб-прототип
-    // TG.ready(); TG.expand(); TG.setHeaderColor('#0b0917');
+    try{ TG.ready(); }catch(e){}
+    try{ TG.expand(); }catch(e){}
   }
+  /* ===== Надёжное хранилище выбора игрока (стиль интерфейса / аватарка) =====
+     Telegram-клиенты нередко очищают localStorage между сессиями, поэтому
+     дублируем выбор в CloudStorage — серверное per-user хранилище Telegram.
+     Оно переживает перезаход, переустановку и работает с любого устройства. */
+  const PREF = {
+    _cloud(){ return (TG && TG.CloudStorage && typeof TG.CloudStorage.setItem==='function') ? TG.CloudStorage : null; },
+    set(key, val){                                   // пишем и локально (мгновенно), и в облако (надёжно)
+      try{ localStorage.setItem('avemafia_'+key, String(val)); }catch(e){}
+      const c=this._cloud(); if(c){ try{ c.setItem('avemafia_'+key, String(val), function(){}); }catch(e){} }
+    },
+    localGet(key){ try{ return localStorage.getItem('avemafia_'+key); }catch(e){ return null; } },
+    cloudGet(key, cb){                               // асинхронно; cb(значение | null)
+      const c=this._cloud();
+      if(!c){ cb(null); return; }
+      try{ c.getItem('avemafia_'+key, function(err, val){ cb((!err && val)?val:null); }); }
+      catch(e){ cb(null); }
+    }
+  };
   // Текущий пользователь Telegram. Username НЕ показываем публично — только админу.
   function getTelegramUser(){
     if(TG && TG.initDataUnsafe && TG.initDataUnsafe.user) return TG.initDataUnsafe.user;
@@ -3513,7 +3531,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function applyStyle(key){
     document.body.classList.toggle('style-winter', key==='winter');
     currentStyle=key;
-    try{ localStorage.setItem('avemafia_style', key); }catch(e){}   // запомнить выбор — вернётся при следующем входе
+    PREF.set('style', key);   // запомнить выбор (локально + в облако Telegram) — вернётся при следующем входе
   }
   // Стиль доступен: базовый, куплен, ИЛИ ты владелец (тебе всё открыто).
   function styleUnlocked(key){ return key==='classic' || amOwner() || (SIM.styles&&SIM.styles.indexOf(key)>=0); }
@@ -3817,8 +3835,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function setActiveAvatar(id){
     const a=AVATARS.find(x=>x.id===id);if(!a||!avUnlocked(a))return;
     AVATARS.forEach(x=>x.active=false);a.active=true;
-    try{ localStorage.setItem('avemafia_avatar', id); }catch(e){}   // запомнить выбор — вернётся при следующем входе
-    sendToBackend('saveAvatar',{id:id});                            // и в общую базу (чтобы работало с любого устройства)
+    PREF.set('avatar', id);              // запомнить выбор (локально + облако Telegram) — вернётся при следующем входе
+    sendToBackend('saveAvatar',{id:id}); // и в общую базу (чтобы работало с любого устройства)
     // hero + публичный портрет профиля (его видят другие игроки)
     const hp=$('avHeroPort');
     hp.className='av-port rar-'+a.rar;
@@ -4422,12 +4440,15 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 
   checkBirthday();     // если сегодня ДР игрока — начислить сундук (раз в год)
   refreshProgress();   // старт: профиль, рейтинг, достижения, аватарки, сундуки/бонусы
-  try{                                                                 // вернуть выбранную ранее аватарку (сохранённую)
-    let _savedId=null; try{ _savedId=localStorage.getItem('avemafia_avatar'); }catch(e){}
+  try{                                                                 // вернуть выбранную ранее аватарку (из localStorage — мгновенно)
+    let _savedId=PREF.localGet('avatar');
     let _av=(_savedId&&AVATARS.find(x=>x.id===_savedId))||AVATARS.find(x=>x.active)||AVATARS[0];
     if(_av&&!avUnlocked(_av)) _av=AVATARS.find(x=>x.active)||AVATARS[0];  // если вдруг ещё не открыта — не падаем
     if(_av) setActiveAvatar(_av.id);
   }catch(e){}
+  // …и надёжно из облака Telegram (переживает очистку localStorage / другое устройство).
+  PREF.cloudGet('style', function(v){ if(v && v!==currentStyle && styleUnlocked(v)) applyStyle(v); });
+  PREF.cloudGet('avatar', function(v){ try{ if(v){ const a=AVATARS.find(x=>x.id===v); if(a&&avUnlocked(a)) setActiveAvatar(a.id); } }catch(e){} });
   applyAssets();   // wire all static data-asset slots (header cat, hero, portraits, podium, rating)
   catLook('home'); // prime cat gaze
   loadGames();     // подтянуть игры из ОБЩЕЙ базы (Supabase) — общий список для всех
