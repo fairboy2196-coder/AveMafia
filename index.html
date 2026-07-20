@@ -2983,17 +2983,21 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   document.body.addEventListener('click',e=>{
     const el=e.target.closest('[data-go]');if(!el)return;
     const id=el.dataset.go;
-    if(id==='game-detail')fillGame(el.dataset.game);
-    if(id==='role-detail')fillRole(el.dataset.role);
-    if(id==='scanner')renderScanner();
-    if(id==='host')renderHost();
-    if(id==='admin')renderAdmin();
-    if(id==='profile'){ renderProfileStats(); renderAch(); renderAvatars(); }
-    if(id==='rating'){ renderRating(); loadLeaderboard(); }   // обновить сообщество из общей базы
-    if(id==='achievements')renderAch();
+    // Навигация ПЕРВЫМ делом — переход между экранами не должен блокироваться
+    // ошибкой в наполнении экрана (иначе «кнопка не работает»).
     closeSheet();             // close menu / notifications if open
     catLeap(el);              // cat leaps onto the pressed control and dissolves
     show(id);
+    try{
+      if(id==='game-detail')fillGame(el.dataset.game);
+      if(id==='role-detail')fillRole(el.dataset.role);
+      if(id==='scanner')renderScanner();
+      if(id==='host')renderHost();
+      if(id==='admin')renderAdmin();
+      if(id==='profile'){ renderProfileStats(); renderAch(); renderAvatars(); }
+      if(id==='rating'){ renderRating(); loadLeaderboard(); }   // обновить сообщество из общей базы
+      if(id==='achievements')renderAch();
+    }catch(err){ console.warn('[nav] render failed for '+id, err); try{ toast('Сбой экрана «'+id+'»: '+((err&&err.message)||err),'i-info'); }catch(_){} }
   });
 
   /* ---------- segmented (games) ---------- */
