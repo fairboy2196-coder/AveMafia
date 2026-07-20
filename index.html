@@ -2329,7 +2329,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v9 · 20.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v10 · 21.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -3421,6 +3421,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       date: isoToRu(r.gdate) || (r.gdate||''),
       time: r.gtime||'', place:r.place||'',
       price: (+r.price>0) ? ((+r.price).toLocaleString('ru-RU')+' ₽') : '—',
+      priceN: +r.price||0,          // числом — для выставления счёта (Telegram Payments)
       capacity:r.capacity||24, min_players:r.min_players||10,
       status:r.status||'soon', statusTxt: STATUS_TXT[r.status]||'',
       format:r.format||'', level:r.level||'', desc:r.descr||'',
@@ -3472,6 +3473,14 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(res && res.isOwner){ document.body.classList.add('is-admin');   // владелец подтверждён сервером
       try{ renderAch(); renderAvatars(); }catch(e){}                   // всё разблокировать для владельца
     }
+    // Купленное (аватарки/стили) — источник правды база: их выдаёт вебхук после оплаты.
+    if(res && res.me){
+      try{
+        if(Array.isArray(res.me.avatars)) SIM.avatars=Array.from(new Set([].concat(SIM.avatars||[], res.me.avatars)));
+        if(Array.isArray(res.me.styles))  SIM.styles =Array.from(new Set([].concat(SIM.styles ||[], res.me.styles)));
+        saveSim(); renderAvatars();
+      }catch(e){}
+    }
     // Аватарка из общей базы — только если на этом устройстве ещё нет своего выбора
     // (чтобы работало и с другого телефона, но не сбрасывало свежий локальный выбор).
     if(res && res.me && res.me.avatar_id){
@@ -3496,10 +3505,39 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       try{ renderNotifs(); }catch(e){}   // место в рейтинге в уведомлениях — из тех же данных
     }
   }
+  // Билеты игрока из ОБЩЕЙ базы. После реальной оплаты билет создаёт вебхук бота,
+  // поэтому источник правды — база, а не локальное хранилище.
+  async function loadMyTickets(){
+    if(!BACKEND.enabled) return;
+    const res = await BACKEND.call('myTickets',{});
+    if(!res || !Array.isArray(res.tickets)) return;
+    SIM.tickets = res.tickets.map(function(t){
+      const g = GAMES[t.game_id] || PAST[t.game_id] || {};
+      return { code:t.code, sig:t.sig, gameKey:t.game_id,
+        title:g.title||t.game_id, date:g.date||'', time:g.time||'', place:g.place||'',
+        guest:ME.first_name, ownerId:ME.id,
+        used:!!t.used, usedAt:t.used_at||null,
+        issuedAt: t.issued_at ? Date.parse(t.issued_at) : Date.now() };
+    });
+    saveSim();
+  }
   // Платёж (участие в игре / покупка аватарки). Реальную интеграцию подключим позже.
-  function processPayment({title,amount,kind,onSuccess}){
-    // TODO[payment]: TG.openInvoice(slug, status=>{...})  или провайдер оплаты.
-    openPayModal({title,amount,kind,onSuccess});
+  /* Оплата: ЮKassa через Telegram Payments.
+     Счёт выставляет бэкенд (createInvoice), оплату подтверждает вебхук бота
+     (successful_payment) — клиенту доверять нельзя, поэтому здесь мы только
+     открываем окно оплаты и потом ПЕРЕЧИТЫВАЕМ состояние из базы.
+     Вне Telegram (обычный браузер) остаётся демо-режим, чтобы прокликать поток. */
+  async function processPayment({title,amount,kind,id,rub,onSuccess}){
+    const canPay = TG && typeof TG.openInvoice==='function' && BACKEND.enabled;
+    if(!canPay){ openPayModal({title,amount,kind,onSuccess}); return; }
+    const res = await BACKEND.call('createInvoice',{kind:kind,id:id,rub:rub,name:title});
+    if(!res || !res.link){ toast(beMsg(res)||'Не удалось создать счёт','i-info'); return; }
+    TG.openInvoice(res.link, function(status){
+      if(status==='paid'){ toast('Оплата прошла','i-check'); onSuccess&&onSuccess(); }
+      else if(status==='failed')    toast('Платёж отклонён','i-x');
+      else if(status==='cancelled') toast('Оплата отменена','i-x');
+      // 'pending' — Telegram досчитает позже; зачислит вебхук
+    });
   }
   tgInit();
 
@@ -3568,8 +3606,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     modalCard.querySelectorAll('[data-style]').forEach(b=>b.addEventListener('click',()=>{
       const k=b.dataset.style;
       if(!styleUnlocked(k)){   // не куплен и не владелец → покупка
-        processPayment({title:'Стиль интерфейса «Зимний»',amount:'299 ₽',kind:'style',onSuccess:()=>{
-          if(!SIM.styles)SIM.styles=[]; SIM.styles.push(k); saveSim(); applyStyle(k); closeModal(); toast('Стиль «Зимний» открыт ❄','i-check');
+        processPayment({title:'Стиль интерфейса «Зимний»',amount:'299 ₽',kind:'style',id:k,rub:299,onSuccess:()=>{
+          if(!SIM.styles)SIM.styles=[]; if(SIM.styles.indexOf(k)<0)SIM.styles.push(k);
+          saveSim(); applyStyle(k); closeModal(); toast('Стиль «Зимний» открыт ❄','i-check');
         }});
         return;
       }
@@ -3865,8 +3904,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const a=AVATARS.find(x=>x.id===card.dataset.av);if(!a)return;
     if(avUnlocked(a)){ setActiveAvatar(a.id); renderAvatars(); return; }
     if(a.cost){
-      processPayment({title:'Покупка аватарки «'+a.name+'»',amount:a.cost+' ₽',kind:'avatar',
-        onSuccess:()=>{ if(!SIM.avatars)SIM.avatars=[]; SIM.avatars.push(a.id); saveSim(); setActiveAvatar(a.id); renderAvatars(); }});
+      processPayment({title:'Покупка аватарки «'+a.name+'»',amount:a.cost+' ₽',kind:'avatar',id:a.id,rub:(+a.cost||0),
+        onSuccess:()=>{ if(!SIM.avatars)SIM.avatars=[]; if(SIM.avatars.indexOf(a.id)<0)SIM.avatars.push(a.id);
+          saveSim(); setActiveAvatar(a.id); renderAvatars(); }});
     }else{
       toast(a.needAch?('Открой за достижение «'+a.needAch+'»'):'Откроется за достижение','i-lock');
     }
@@ -4164,11 +4204,17 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         else toast('Запись отменена','i-x');
       } else { toast(beMsg(res),'i-info'); if(b)b.disabled=false; }
     }
-    else if(act==='pay'){ processPayment({title:g.title,amount:g.price,kind:'game',onSuccess:async()=>{
-      const res=await BACKEND.call('pay',{gameId:key});
-      if(res && res.ticket){ SIM.tickets.push({code:res.ticket.code,sig:res.ticket.sig,gameKey:key,title:g.title,date:g.date,time:g.time,place:g.place,guest:ME.first_name,ownerId:ME.id,used:false,usedAt:null,issuedAt:Date.now()}); saveSim(); }
-      else { issueTicket(key); }
-      await refreshSignups(key); renderBooking(key,g); toast('Билет выдан','i-ticket');
+    else if(act==='pay'){ processPayment({title:g.title,amount:g.price,kind:'game',id:key,rub:(+g.priceN||0),onSuccess:async()=>{
+      // Билет уже создан вебхуком после подтверждения оплаты — просто перечитываем из базы.
+      // Вебхук может отработать на доли секунды позже окна оплаты, поэтому пара повторов.
+      let got=null;
+      for(let i=0;i<5 && !got;i++){
+        await loadMyTickets();
+        got=myTicket(key);
+        if(!got) await new Promise(r=>setTimeout(r,900));
+      }
+      await refreshSignups(key); renderBooking(key,g);
+      toast(got?'Билет выдан':'Оплата принята — билет вот-вот появится','i-ticket');
       try{ renderNotifs(); }catch(e){}   // «Бронь подтверждена» — реальная, появится сразу
       const el=$('booking').querySelector('.ticket'); el&&el.scrollIntoView({behavior:'smooth',block:'center'});
     }}); }
@@ -4513,6 +4559,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   catLook('home'); // prime cat gaze
   loadGames();     // подтянуть игры из ОБЩЕЙ базы (Supabase) — общий список для всех
   backendInit();   // зарегистрировать игрока в общей базе (по подписи Telegram) + подтянуть сообщество/рейтинг
+  loadMyTickets(); // билеты игрока из базы (их выдаёт вебхук после оплаты)
   // Почти реальное время: периодически перечитываем игры из базы (правки владельца
   // — цена/дата/время — появляются у всех сами) + при возврате в приложение.
   setInterval(function(){ if(!document.hidden) loadGames(); }, 15000);

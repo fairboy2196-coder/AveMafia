@@ -20,6 +20,7 @@ create table if not exists users (
   chests      int not null default 0,
   bonuses     jsonb not null default '{"free":0,"role":0,"immune":0}'::jsonb,
   avatars     text[] not null default '{}',    -- купленные аватарки
+  styles      text[] not null default '{}',    -- купленные стили интерфейса (winter и т.д.)
   fav_roles   text[] not null default '{}',    -- любимые роли (до 3)
   avatar_id   text not null default 'hood',    -- активная аватарка
   created_at  timestamptz not null default now()

@@ -72,27 +72,46 @@ async function sendWelcome(chatId: number) {
 // ---------- успешная оплата → билет ----------
 async function onPaid(msg: any) {
   const sp = msg.successful_payment;
-  const tgId = msg.from?.id;
-  // invoice_payload формата "game:<gameId>" (кладём его при создании счёта в club)
-  const payload = String(sp?.invoice_payload || "");
-  const gameId = payload.startsWith("game:") ? payload.slice(5) : payload;
-  if (!tgId || !gameId) return;
-  // запись оплачена
-  await sb.from("signups").upsert({ game_id: gameId, tg_id: tgId, paid: true }, { onConflict: "game_id,tg_id" });
-  // платёж в историю
+  // invoice_payload формата "<kind>:<id>:<tgId>" (кладём его в club/createInvoice)
+  const parts = String(sp?.invoice_payload || "").split(":");
+  const kind = parts[0] || "game";
+  const itemId = parts[1] || "";
+  const tgId = Number(parts[2]) || msg.from?.id;    // плательщик из payload надёжнее
+  const rub = Math.round((sp?.total_amount || 0) / 100);
+  if (!tgId || !itemId) return;
+
+  // платёж в историю (общая для всех видов покупок)
   await sb.from("payments").insert({
-    tg_id: tgId, game_id: gameId, amount: Math.round((sp.total_amount || 0) / 100),
+    tg_id: tgId, game_id: kind === "game" ? itemId : null, amount: rub,
     provider: "yookassa", ext_id: sp.provider_payment_charge_id || sp.telegram_payment_charge_id || null,
     status: "succeeded",
   });
-  // билет с подписью
-  const code = "AM-" + Math.floor(1000 + Math.random() * 8999);
-  const sig = await ticketSig(code, gameId);
-  await sb.from("tickets").upsert({ code, game_id: gameId, tg_id: tgId, sig });
+
+  if (kind === "game") {
+    // запись оплачена + билет с подписью
+    await sb.from("signups").upsert({ game_id: itemId, tg_id: tgId, paid: true }, { onConflict: "game_id,tg_id" });
+    const code = "AM-" + Math.floor(1000 + Math.random() * 8999);
+    const sig = await ticketSig(code, itemId);
+    await sb.from("tickets").upsert({ code, game_id: itemId, tg_id: tgId, sig });
+    await tgApi("sendMessage", {
+      chat_id: msg.chat.id,
+      text: `✅ Оплата получена! Ваш билет №${code} готов — откройте приложение, чтобы показать QR на входе.`,
+      reply_markup: { inline_keyboard: [[{ text: "🎫 Мой билет", web_app: { url: APP_URL } }]] },
+    });
+    return;
+  }
+
+  // Цифровые товары: аватарка / стиль интерфейса — выдаём в профиль игрока.
+  const col = kind === "avatar" ? "avatars" : "styles";
+  const { data: u } = await sb.from("users").select(col).eq("tg_id", tgId).single();
+  const owned: string[] = (u as any)?.[col] || [];
+  if (!owned.includes(itemId)) {
+    await sb.from("users").update({ [col]: [...owned, itemId] }).eq("tg_id", tgId);
+  }
   await tgApi("sendMessage", {
     chat_id: msg.chat.id,
-    text: `✅ Оплата получена! Ваш билет №${code} готов — откройте приложение, чтобы показать QR на входе.`,
-    reply_markup: { inline_keyboard: [[{ text: "🎫 Мой билет", web_app: { url: APP_URL } }]] },
+    text: `✅ Покупка оплачена! ${kind === "avatar" ? "Аватарка" : "Стиль оформления"} открыт — загляните в профиль.`,
+    reply_markup: { inline_keyboard: [[{ text: "🎭 Открыть клуб", web_app: { url: APP_URL } }]] },
   });
 }
 

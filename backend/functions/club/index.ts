@@ -31,6 +31,19 @@ const sb = createClient(
 );
 const BOT_TOKEN = Deno.env.get("BOT_TOKEN") ?? "";
 const TICKET_SECRET = Deno.env.get("TICKET_SECRET") ?? "ave-mafia-secret";
+// Токен платёжного провайдера (ЮKassa), выдаётся в @BotFather → Payments.
+// Для отладки берётся TEST-токен — деньги не списываются, карты тестовые.
+const PROVIDER_TOKEN = Deno.env.get("PROVIDER_TOKEN") ?? "";
+
+// Вызов Telegram Bot API (нужен для выставления счёта).
+async function tgApi(method: string, payload: unknown) {
+  const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return await r.json();
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -164,6 +177,47 @@ Deno.serve(async (req) => {
         return json(await signupList(payload.gameId));
       }
 
+      // ---- ВЫСТАВИТЬ СЧЁТ (ЮKassa через Telegram Payments) ----
+      // Возвращаем ссылку на счёт; фронт открывает её через TG.openInvoice().
+      // Деньги зачисляет НЕ этот вызов, а вебхук `tgbot` (successful_payment) —
+      // так подтверждение приходит от Telegram, а не от клиента (его нельзя подделать).
+      case "createInvoice": {
+        if (!PROVIDER_TOKEN) throw new Error("PROVIDER_TOKEN не задан в секретах функции");
+        const kind = String(payload.kind || "game");   // game | avatar | style
+        let title = "", description = "", amount = 0, ip = "";
+        if (kind === "game") {
+          const { data: g } = await sb.from("games").select("*").eq("id", payload.id).single();
+          if (!g) throw new Error("игра не найдена");
+          amount = +g.price || 0;
+          title = g.title || "Участие в игре";
+          description = ["Участие в игре", g.gdate, g.gtime, g.place].filter(Boolean).join(" · ");
+          ip = `game:${g.id}`;
+        } else if (kind === "avatar" || kind === "style") {
+          amount = +payload.rub || 0;
+          title = (kind === "avatar" ? "Аватарка" : "Стиль") + ` «${payload.name || payload.id}»`;
+          description = "Оформление профиля в клубе «АвеМафия»";
+          ip = `${kind}:${payload.id}`;
+        } else throw new Error("неизвестный тип покупки");
+        if (!(amount > 0)) throw new Error("некорректная сумма");
+        ip += `:${me.tg_id}`;                       // чтобы вебхук знал плательщика
+        const inv = await tgApi("createInvoiceLink", {
+          title: title.slice(0, 32),                // лимиты Telegram
+          description: description.slice(0, 255),
+          payload: ip,
+          provider_token: PROVIDER_TOKEN,
+          currency: "RUB",
+          prices: [{ label: title.slice(0, 32), amount: Math.round(amount * 100) }], // в копейках
+          need_email: true, send_email_to_provider: true,   // для чека 54-ФЗ
+        });
+        if (!inv?.ok) throw new Error("Telegram: " + (inv?.description || "createInvoiceLink failed"));
+        // фиксируем намерение оплаты (статус обновит вебхук)
+        await sb.from("payments").insert({
+          tg_id: me.tg_id, game_id: kind === "game" ? payload.id : null,
+          amount, provider: "yookassa", status: "pending",
+        });
+        return json({ link: inv.result });
+      }
+
       // ---- оплата (Фаза 1: без реальных денег — выдаём билет; Фаза 2: YooKassa) ----
       case "pay": {
         await sb.from("signups").update({ paid: true }).eq("game_id", payload.gameId).eq("tg_id", me.tg_id);
@@ -171,6 +225,14 @@ Deno.serve(async (req) => {
         const sig = await ticketSig(code, payload.gameId);
         await sb.from("tickets").upsert({ code, game_id: payload.gameId, tg_id: me.tg_id, sig });
         return json({ ticket: { code, gameId: payload.gameId, sig } });
+      }
+
+      // ---- мои билеты (их создаёт вебхук после реальной оплаты) ----
+      case "myTickets": {
+        const { data } = await sb.from("tickets")
+          .select("code, game_id, sig, used, used_at, issued_at")
+          .eq("tg_id", me.tg_id).order("issued_at", { ascending: false });
+        return json({ tickets: data ?? [] });
       }
 
       // ---- владелец: проверка билета на входе ----
