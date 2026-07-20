@@ -2329,7 +2329,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v8 · 20.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v9 · 20.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -3917,13 +3917,15 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         time:'', go:'game-detail', game:t.gameKey });
     }); }catch(e){}
     // 3) Сундуки — только если они реально есть
-    const ch=chestN();
-    if(ch>0) out.push({ id:'chest:'+ch, ico:'i-chest', t:'У вас '+ch+' '+plural(ch,'сундук','сундука','сундуков'),
-      p:'Откройте в профиле — внутри бонусы клуба.', time:'', go:'profile' });
+    try{ const ch=chestN();
+      if(ch>0) out.push({ id:'chest:'+ch, ico:'i-chest', t:'У вас '+ch+' '+plural(ch,'сундук','сундука','сундуков'),
+        p:'Откройте в профиле — внутри бонусы клуба.', time:'', go:'profile' });
+    }catch(e){}
     // 4) Рейтинг — реальное место в общем зачёте
-    const pos=myRatingPos();
-    if(pos) out.push({ id:'rank:'+pos, ico:'i-crown', t:'Ваше место в рейтинге',
-      p:'Сейчас вы #'+pos+' в общем зачёте клуба.', time:'', go:'rating' });
+    try{ const pos=myRatingPos();
+      if(pos) out.push({ id:'rank:'+pos, ico:'i-crown', t:'Ваше место в рейтинге',
+        p:'Сейчас вы #'+pos+' в общем зачёте клуба.', time:'', go:'rating' });
+    }catch(e){}
     out.forEach(function(n){ n.unread = !notifRead.has(n.id); });
     return out;
   }
@@ -3953,7 +3955,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     it.classList.remove('unread'); updateBell();
     if(!it.dataset.go) closeSheet();   // info-only notification → just close (nav ones close via global handler)
   });
-  renderNotifs();
+  // ВАЖНО: первый renderNotifs() зовём в блоке старта — ниже по файлу, после
+  // инициализации SIM (иначе TDZ: «Cannot access 'SIM' before initialization»).
 
   /* ---- drawer info items → modal (О клубе / Правила / Контакты / Настройки) ---- */
   const INFO={
@@ -4496,6 +4499,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 
   checkBirthday();     // если сегодня ДР игрока — начислить сундук (раз в год)
   refreshProgress();   // старт: профиль, рейтинг, достижения, аватарки, сундуки/бонусы
+  try{ renderNotifs(); }catch(e){}   // уведомления — здесь SIM уже инициализирован
   try{                                                                 // вернуть выбранную ранее аватарку (из localStorage — мгновенно)
     let _savedId=PREF.localGet('avatar');
     let _av=(_savedId&&AVATARS.find(x=>x.id===_savedId))||AVATARS.find(x=>x.active)||AVATARS[0];
