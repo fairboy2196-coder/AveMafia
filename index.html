@@ -2871,7 +2871,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   { const lp=document.getElementById('list-past'); if(lp) lp.addEventListener('click',function(e){
       const d=e.target.closest('[data-del-past]'); if(d){ e.stopPropagation(); e.preventDefault(); deletePastGame(d.dataset.delPast); } }); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function syncSchedule(){ renderHome(); renderUpcoming(); renderAnnouncements(); renderPast(); }
+  function syncSchedule(){ renderHome(); renderUpcoming(); renderAnnouncements(); renderPast(); try{ renderNotifs(); }catch(e){} }
   syncSchedule();
   setInterval(syncSchedule, 7*24*60*60*1000);   // раз в неделю
 
@@ -3488,6 +3488,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
                  losses:u.losses|0, games:u.games|0, mvpTotal:u.mvp|0, winsByTeam:{mafia:0,good:0,third:0} } };
       });
       renderRating();
+      try{ renderNotifs(); }catch(e){}   // место в рейтинге в уведомлениях — из тех же данных
     }
   }
   // Платёж (участие в игре / покупка аватарки). Реальную интеграцию подключим позже.
@@ -3881,35 +3882,73 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   document.querySelectorAll('[data-sheet-close]').forEach(el=>el.addEventListener('click',closeSheet));
   $('btnMenu') && $('btnMenu').addEventListener('click',()=>openSheet(drawer));
 
-  /* ---- notifications ---- */
-  const NOTIFS=[
-    {ico:'i-cal',   t:'Открыта запись: «Маскарад»', p:'7 июня, 18:30 · Академия Теней. Места уходят быстро.', time:'2 часа назад', go:'game-detail', game:'masquerade', unread:true},
-    {ico:'i-check', t:'Бронь подтверждена',          p:'«Лунная ночь» — ваше место закреплено за вами.',        time:'вчера',        go:'game-detail', game:'moon',       unread:true},
-    {ico:'i-chest', t:'Вам выпали сундуки',          p:'За новый статус вы получили 3 сундука. Откройте их в профиле.', time:'2 дня назад', go:'profile',                    unread:false},
-    {ico:'i-crown', t:'Вы поднялись в рейтинге',     p:'Теперь вы #27 в общем зачёте клуба. Так держать!',      time:'3 дня назад',  go:'rating',                     unread:false}
-  ];
-  let bellSeen=false;
+  /* ---- Уведомления: строятся из РЕАЛЬНЫХ данных, а не заглушки ----
+     Источники — те же, что и в остальном приложении, поэтому цифры
+     всегда совпадают: открытые игры, реальные брони игрока, реальные
+     сундуки, реальное место в рейтинге. Прочитанные — помним. */
+  let notifRead;
+  try{ notifRead=new Set(JSON.parse(localStorage.getItem('avemafia_notif_read')||'[]')); }catch(e){ notifRead=new Set(); }
+  function saveNotifRead(){ try{ localStorage.setItem('avemafia_notif_read', JSON.stringify([...notifRead])); }catch(e){} }
+  function myRatingPos(){
+    let ranked=null;
+    if(RATING_DB && RATING_DB.length){ ranked=RATING_DB.slice().sort(function(a,b){ return (b.s.pts-a.s.pts)||(b.s.games-a.s.games); }); }
+    else { try{ ranked=allRanked(); }catch(e){ ranked=null; } }
+    if(!ranked) return 0;
+    const i=ranked.findIndex(function(x){ return x.id===ME.id; });
+    return i>=0 ? i+1 : 0;
+  }
+  function buildNotifs(){
+    const out=[];
+    // 1) Открыта запись — реальные игры со статусом «Открыта» (ближайшие первыми)
+    try{ upcomingKeys().forEach(function(k){ const g=GAMES[k]; if(g && g.status==='open')
+      out.push({ id:'open:'+k, ico:'i-cal', t:'Открыта запись: «'+g.title+'»',
+        p:(g.date||'')+(g.time?(', '+g.time):'')+(g.place?(' · '+g.place):'')+'.',
+        time:'запись открыта', go:'game-detail', game:k });
+    }); }catch(e){}
+    // 2) Бронь подтверждена — только по реальным броням этого игрока
+    try{ (SIM.tickets||[]).filter(function(t){ return t.ownerId===ME.id && !t.used; }).forEach(function(t){
+      out.push({ id:'book:'+t.code, ico:'i-check', t:'Бронь подтверждена',
+        p:'«'+t.title+'» — ваше место закреплено'+(t.date?(' на '+t.date):'')+'.',
+        time:'', go:'game-detail', game:t.gameKey });
+    }); }catch(e){}
+    // 3) Сундуки — только если они реально есть
+    const ch=chestN();
+    if(ch>0) out.push({ id:'chest:'+ch, ico:'i-chest', t:'У вас '+ch+' '+plural(ch,'сундук','сундука','сундуков'),
+      p:'Откройте в профиле — внутри бонусы клуба.', time:'', go:'profile' });
+    // 4) Рейтинг — реальное место в общем зачёте
+    const pos=myRatingPos();
+    if(pos) out.push({ id:'rank:'+pos, ico:'i-crown', t:'Ваше место в рейтинге',
+      p:'Сейчас вы #'+pos+' в общем зачёте клуба.', time:'', go:'rating' });
+    out.forEach(function(n){ n.unread = !notifRead.has(n.id); });
+    return out;
+  }
+  let NOTIFS=[];
   function updateBell(){
     const b=$('bellBadge'); if(!b)return;
-    const u=NOTIFS.filter(n=>n.unread).length;
-    b.textContent=u; b.classList.toggle('hide',!(u>0 && !bellSeen));
+    const u=NOTIFS.filter(function(n){ return n.unread; }).length;
+    b.textContent=u; b.classList.toggle('hide',!(u>0));
   }
   function renderNotifs(){
-    const list=$('notifList'); if(!list)return;
-    list.innerHTML = NOTIFS.length ? NOTIFS.map((n,i)=>`
-      <div class="notif-item ${n.unread?'unread':''}" data-notif="${i}" ${n.go?`data-go="${n.go}"`:''} ${n.game?`data-game="${n.game}"`:''}>
-        <div class="ni-ico"><svg class="svgico"><use href="#${n.ico}"/></svg></div>
-        <div class="ni-body"><h4>${n.t}</h4><p>${n.p}</p><span class="ni-time">${n.time}</span></div>
-      </div>`).join('') : '<div class="notif-empty">Пока нет уведомлений.<br>Здесь появятся анонсы игр и напоминания о бронях.</div>';
+    NOTIFS=buildNotifs();
+    const list=$('notifList');
+    if(list){
+      list.innerHTML = NOTIFS.length ? NOTIFS.map(function(n,i){ return ''+
+        '<div class="notif-item '+(n.unread?'unread':'')+'" data-notif="'+i+'"'+(n.go?' data-go="'+n.go+'"':'')+(n.game?' data-game="'+n.game+'"':'')+'>'+
+          '<div class="ni-ico"><svg class="svgico"><use href="#'+n.ico+'"/></svg></div>'+
+          '<div class="ni-body"><h4>'+n.t+'</h4><p>'+n.p+'</p>'+(n.time?'<span class="ni-time">'+n.time+'</span>':'')+'</div>'+
+        '</div>'; }).join('')
+        : '<div class="notif-empty">Пока нет уведомлений.<br>Здесь появятся анонсы игр, напоминания о бронях и события профиля.</div>';
+    }
+    updateBell();
   }
-  $('btnBell') && $('btnBell').addEventListener('click',()=>{ bellSeen=true; openSheet(notifPanel); updateBell(); });
-  $('notifList') && $('notifList').addEventListener('click',e=>{
+  $('btnBell') && $('btnBell').addEventListener('click',function(){ renderNotifs(); openSheet(notifPanel); });
+  $('notifList') && $('notifList').addEventListener('click',function(e){
     const it=e.target.closest('[data-notif]'); if(!it)return;
-    const n=NOTIFS[+it.dataset.notif]; if(n) n.unread=false;
+    const n=NOTIFS[+it.dataset.notif]; if(n){ n.unread=false; notifRead.add(n.id); saveNotifRead(); }
     it.classList.remove('unread'); updateBell();
     if(!it.dataset.go) closeSheet();   // info-only notification → just close (nav ones close via global handler)
   });
-  renderNotifs(); updateBell();
+  renderNotifs();
 
   /* ---- drawer info items → modal (О клубе / Правила / Контакты / Настройки) ---- */
   const INFO={
@@ -4122,6 +4161,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       if(res && res.ticket){ SIM.tickets.push({code:res.ticket.code,sig:res.ticket.sig,gameKey:key,title:g.title,date:g.date,time:g.time,place:g.place,guest:ME.first_name,ownerId:ME.id,used:false,usedAt:null,issuedAt:Date.now()}); saveSim(); }
       else { issueTicket(key); }
       await refreshSignups(key); renderBooking(key,g); toast('Билет выдан','i-ticket');
+      try{ renderNotifs(); }catch(e){}   // «Бронь подтверждена» — реальная, появится сразу
       const el=$('booking').querySelector('.ticket'); el&&el.scrollIntoView({behavior:'smooth',block:'center'});
     }}); }
     else if(act==='show-ticket'){ const t=myTicket(key); if(t)openTicketModal(t); }
