@@ -3484,7 +3484,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const res = await BACKEND.call('leaderboard', {});
     if(res && Array.isArray(res.leaderboard)){
       RATING_DB = res.leaderboard.map(function(u){
-        return { id:u.tg_id, s:{ name:u.first_name||'Игрок', pts:u.pts|0, wins:u.wins|0,
+        return { id:u.tg_id, avatarId:u.avatar_id||null, s:{ name:u.first_name||'Игрок', pts:u.pts|0, wins:u.wins|0,
                  losses:u.losses|0, games:u.games|0, mvpTotal:u.mvp|0, winsByTeam:{mafia:0,good:0,third:0} } };
       });
       renderRating();
@@ -3851,6 +3851,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     pfPort.querySelectorAll('.art-asset').forEach(n=>n.remove());
     if(a.img) mountAsset(pfPort,a.img);
     renderAvatars();
+    try{ renderRating(); }catch(e){}   // портрет в рейтинге — сразу обновляем (меняется в профиле → меняется везде)
     toast('Активная аватарка: '+a.name,'i-mask');
   }
   $('avGrid').addEventListener('click',e=>{
@@ -4278,11 +4279,21 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 
   // Обновить все «прогресс»-экраны разом (профиль, рейтинг, достижения, аватарки, любимые роли).
   function refreshProgress(){ renderProfileStats(); renderRating(); renderAch(); renderAvatars(); renderFavRoles(); renderInv(); renderChests(); }
+  function activeAvatar(){ return AVATARS.find(function(x){return x.active;}) || AVATARS[0]; }
+  // Портрет для рейтинга. Для «меня» — моя ВЫБРАННАЯ аватарка (как в профиле),
+  // для других игроков — их аватарка из базы (если есть), иначе базовый Странник.
+  function ratingPortrait(e){
+    let a=null;
+    if(e && e.id===ME.id) a=activeAvatar();
+    else if(e && e.avatarId) a=AVATARS.find(function(x){return x.id===e.avatarId;});
+    if(!a) a=AVATARS[0];
+    return { asset:a.img||'warden', art:a.art||'m-hood' };
+  }
   function podCell(rankNum, e, cls){
     if(!e) return '<div class="pod '+cls+' empty"></div>';
-    const me=e.id===ME.id, nm=me?ME.first_name:e.s.name;
+    const me=e.id===ME.id, nm=me?ME.first_name:e.s.name, port=ratingPortrait(e);
     return '<div class="pod '+cls+'">'+(cls==='first'?'<div class="crown"><svg viewBox="0 0 24 24"><use href="#i-crown"/></svg></div>':'')+
-      '<div class="pav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>'+
+      '<div class="pav" data-asset="'+port.asset+'"><svg><use href="#'+port.art+'"/></svg></div>'+
       '<div class="pn">'+escH(nm)+(me?' <span class="youtag">Вы</span>':'')+'</div>'+
       '<div class="pp"><svg class="svgico"><use href="#i-diamond"/></svg>'+e.s.pts+'</div>'+
       '<div class="rank">'+rankNum+'</div></div>';
@@ -4309,9 +4320,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(pod){ pod.innerHTML = podCell(2,top[1],'second')+podCell(1,top[0],'first')+podCell(3,top[2],'third'); try{hydrateArt(pod);}catch(e){} }
     const rest=ranked.slice(3);
     if(box){
-      box.innerHTML = totalTag + rest.map(function(e,idx){ const me=e.id===ME.id, s=e.s;
+      box.innerHTML = totalTag + rest.map(function(e,idx){ const me=e.id===ME.id, s=e.s, port=ratingPortrait(e);
         return '<div class="frame rk-row '+(me?'me':'')+'"><div class="pos">'+(idx+4)+'</div>'+
-          '<div class="rav" data-asset="warden"><svg><use href="#m-hood"/></svg></div>'+
+          '<div class="rav" data-asset="'+port.asset+'"><svg><use href="#'+port.art+'"/></svg></div>'+
           '<div class="rinfo"><div class="rn">'+escH(me?ME.first_name:s.name)+(me?'<span class="youtag">Вы</span>':'')+'</div><div class="rs">'+winrate(s)+'% побед · '+s.games+' '+plural(s.games,'игра','игры','игр')+'</div></div>'+
           '<div class="rpts"><svg class="svgico"><use href="#i-diamond"/></svg>'+s.pts+'</div></div>';
       }).join('');

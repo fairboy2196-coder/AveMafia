@@ -100,12 +100,12 @@ Deno.serve(async (req) => {
       // ВСЕ зарегистрированные игроки клуба (а не только сыгравшие) —
       // владелец должен видеть всё сообщество. Сортировка: по очкам, затем по числу игр.
       const { data } = await sb.from("users")
-        .select("tg_id, first_name, created_at, player_stats(pts,wins,losses,games,mvp_total)")
+        .select("tg_id, first_name, avatar_id, created_at, player_stats(pts,wins,losses,games,mvp_total)")
         .order("created_at", { ascending: true }).limit(1000);
       const list = (data ?? []).map((u: any) => {
         const s = Array.isArray(u.player_stats) ? (u.player_stats[0] || {}) : (u.player_stats || {});
         return {
-          tg_id: u.tg_id, first_name: u.first_name || "Игрок",
+          tg_id: u.tg_id, first_name: u.first_name || "Игрок", avatar_id: u.avatar_id || null,
           pts: s.pts ?? 0, wins: s.wins ?? 0, losses: s.losses ?? 0,
           games: s.games ?? 0, mvp: s.mvp_total ?? 0,
         };
