@@ -9,8 +9,11 @@
 create table if not exists users (
   tg_id       bigint primary key,             -- Telegram user id (из initData)
   username    text,                            -- @username (виден только владельцу)
-  first_name  text not null default 'Игрок',
-  last_name   text,
+  first_name  text not null default 'Игрок',   -- ОРИГИНАЛ из Telegram (видит только владелец)
+  last_name   text,                            -- ОРИГИНАЛ из Telegram (видит только владелец)
+  display_name text,                           -- имя, выбранное игроком (видят все)
+  city        text,                            -- город игрока (часть группы)
+  kind        text not null default 'team',    -- классификация: team | corp | kids
   phone       text,
   occupation  text,                            -- род деятельности (в т.ч. «Другое»)
   birthday    date,                            -- для сундука в день рождения
@@ -30,6 +33,8 @@ create table if not exists users (
 create table if not exists games (
   id          text primary key,                -- 'moon' | 'ev_<slug>'
   title       text not null,
+  city        text,                            -- город игры (часть группы)
+  kind        text not null default 'team',    -- классификация: team | corp | kids
   gdate       date,                            -- дата игры
   gtime       text,                            -- '19:00'
   place       text,
@@ -94,8 +99,12 @@ create table if not exists mvp_votes (
 );
 
 -- ---------- Рейтинг игрока (агрегат, обновляется при завершении игры) ----------
+-- Рейтинг ведётся ОТДЕЛЬНО в каждой группе (город × классификация),
+-- поэтому ключ составной: у игрока может быть своя статистика в разных городах.
 create table if not exists player_stats (
-  tg_id       bigint primary key references users(tg_id) on delete cascade,
+  tg_id       bigint not null references users(tg_id) on delete cascade,
+  city        text not null default '',
+  kind        text not null default 'team',
   pts         int not null default 0,
   wins        int not null default 0,
   losses      int not null default 0,
@@ -108,8 +117,10 @@ create table if not exists player_stats (
   mvp_total   int not null default 0,
   month_games int not null default 0,
   month_mvp   int not null default 0,
-  stat_month  text
+  stat_month  text,
+  primary key (tg_id, city, kind)
 );
+create index if not exists player_stats_group_idx on player_stats(city, kind, pts desc);
 
 -- ---------- Платежи (Фаза 2 — YooKassa) ----------
 create table if not exists payments (

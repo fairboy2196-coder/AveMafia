@@ -12,6 +12,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OWNER_USERNAMES = ["Lovelias21"];               // владельцы клуба (без @)
+// Классификации игр. Группа = пара (город, классификация); рейтинг считается внутри группы.
+const KIND_RU: Record<string, string> = {
+  team: "Сборная мафия", corp: "Корпоративная мафия", kids: "Детская мафия",
+};
 const RP = { win: 3, loss: 0, mvp: 2, streak3: 1, mvp3mo: 2, attend5: 1 };
 
 // Полный доступ к БД. В новых проектах Supabase секретный ключ лежит в
@@ -80,17 +84,25 @@ async function ticketSig(code: string, gameId: string) {
 }
 async function ensureUser(tgu: any) {
   const isOwner = OWNER_USERNAMES.map((s) => s.toLowerCase()).includes(String(tgu.username || "").toLowerCase());
+  // first_name/last_name/username — ВСЕГДА оригинал из Telegram (владелец видит правду).
+  // display_name/city/kind тут не трогаем: их задаёт сам игрок.
   await sb.from("users").upsert({
     tg_id: tgu.id, username: tgu.username ?? null,
     first_name: tgu.first_name ?? "Игрок", last_name: tgu.last_name ?? null,
     is_owner: isOwner,
   }, { onConflict: "tg_id" });
-  await sb.from("player_stats").upsert({ tg_id: tgu.id }, { onConflict: "tg_id", ignoreDuplicates: true });
   const { data } = await sb.from("users").select("*").eq("tg_id", tgu.id).single();
+  // строка рейтинга заводится в ГРУППЕ игрока (город × классификация)
+  await sb.from("player_stats").upsert(
+    { tg_id: tgu.id, city: data?.city ?? "", kind: data?.kind ?? "team" },
+    { onConflict: "tg_id,city,kind", ignoreDuplicates: true },
+  );
   return data;
 }
-async function statsRow(tg_id: number) {
-  const { data } = await sb.from("player_stats").select("*").eq("tg_id", tg_id).single();
+// Статистика игрока внутри конкретной группы.
+async function statsRow(tg_id: number, city = "", kind = "team") {
+  const { data } = await sb.from("player_stats").select("*")
+    .eq("tg_id", tg_id).eq("city", city ?? "").eq("kind", kind ?? "team").maybeSingle();
   return data;
 }
 
@@ -101,7 +113,11 @@ Deno.serve(async (req) => {
 
     // --- Публичные действия (без Telegram-авторизации): список игр и рейтинг ---
     if (action === "games") {
-      const { data } = await sb.from("games").select("*").eq("archived", false).order("gdate");
+      // Игры своей ГРУППЫ (город × классификация). Без фильтра — все (для владельца).
+      let gq = sb.from("games").select("*").eq("archived", false).order("gdate");
+      if (payload?.city) gq = gq.eq("city", payload.city);
+      if (payload?.kind) gq = gq.eq("kind", payload.kind);
+      const { data } = await gq;
       // реальные счётчики записей по каждой игре (общие для всех)
       const { data: su } = await sb.from("signups").select("game_id, paid");
       const cnt: Record<string, number> = {}, paidCnt: Record<string, number> = {};
@@ -110,18 +126,51 @@ Deno.serve(async (req) => {
       return json({ games });
     }
     if (action === "leaderboard") {
-      // ВСЕ зарегистрированные игроки клуба (а не только сыгравшие) —
-      // владелец должен видеть всё сообщество. Сортировка: по очкам, затем по числу игр.
-      const { data } = await sb.from("users")
-        .select("tg_id, first_name, avatar_id, created_at, player_stats(pts,wins,losses,games,mvp_total)")
+      // Рейтинг ВНУТРИ группы (город × классификация): показываем всех
+      // зарегистрированных игроков этой группы, даже без сыгранных игр.
+      const city = payload?.city ?? null;
+      const kind = payload?.kind ?? null;
+
+      // Владельцу дополнительно отдаём оригинальные имена из Telegram.
+      // Для анонимов этого поля нет — иначе настоящие имена мог бы собрать кто угодно.
+      let viewerIsOwner = false;
+      try {
+        if (initData) {
+          const u = await verifyUser(initData);
+          viewerIsOwner = OWNER_USERNAMES.map((s) => s.toLowerCase())
+            .includes(String(u.username || "").toLowerCase());
+        }
+      } catch { /* не авторизован — просто обычный зритель */ }
+
+      let uq = sb.from("users")
+        .select("tg_id, first_name, last_name, username, display_name, avatar_id, city, kind, created_at")
         .order("created_at", { ascending: true }).limit(1000);
-      const list = (data ?? []).map((u: any) => {
-        const s = Array.isArray(u.player_stats) ? (u.player_stats[0] || {}) : (u.player_stats || {});
-        return {
-          tg_id: u.tg_id, first_name: u.first_name || "Игрок", avatar_id: u.avatar_id || null,
+      if (city !== null) uq = uq.eq("city", city);
+      if (kind !== null) uq = uq.eq("kind", kind);
+      const { data: users } = await uq;
+
+      let sq = sb.from("player_stats").select("tg_id, pts, wins, losses, games, mvp_total");
+      if (city !== null) sq = sq.eq("city", city);
+      if (kind !== null) sq = sq.eq("kind", kind);
+      const { data: stats } = await sq;
+      const byId: Record<number, any> = {};
+      (stats ?? []).forEach((s: any) => { byId[s.tg_id] = s; });
+
+      const list = (users ?? []).map((u: any) => {
+        const s = byId[u.tg_id] || {};
+        const row: any = {
+          tg_id: u.tg_id,
+          first_name: u.display_name || u.first_name || "Игрок",   // публичное имя
+          avatar_id: u.avatar_id || null,
+          city: u.city ?? null, kind: u.kind ?? "team",
           pts: s.pts ?? 0, wins: s.wins ?? 0, losses: s.losses ?? 0,
           games: s.games ?? 0, mvp: s.mvp_total ?? 0,
         };
+        if (viewerIsOwner) {
+          row.real_name = [u.first_name, u.last_name].filter(Boolean).join(" ");
+          row.username = u.username ?? null;
+        }
+        return row;
       }).sort((a, b) => (b.pts - a.pts) || (b.games - a.games));
       return json({ leaderboard: list, count: list.length });
     }
@@ -135,16 +184,38 @@ Deno.serve(async (req) => {
     switch (action) {
       // ---- профиль/старт: вернуть всё, что нужно фронту ----
       case "init": {
-        // обновим профиль из регистрации, если пришёл
+        // Обновим профиль из регистрации, если пришёл.
+        // ВАЖНО: имя из формы пишем в display_name, а НЕ в first_name —
+        // first_name/last_name/username остаются оригиналом из Telegram,
+        // чтобы владелец всегда видел, кто это на самом деле.
         if (payload.profile) {
           const pr = payload.profile;
-          await sb.from("users").update({
-            first_name: pr.first ?? me.first_name, last_name: pr.last ?? me.last_name,
-            occupation: pr.occupation ?? me.occupation, birthday: pr.birthday || null, phone: pr.phone ?? me.phone,
-          }).eq("tg_id", me.tg_id);
+          const upd: Record<string, unknown> = {
+            occupation: pr.occupation ?? me.occupation,
+            birthday: pr.birthday || null,
+            phone: pr.phone ?? me.phone,
+          };
+          if (pr.first) upd.display_name = String(pr.first).trim().slice(0, 40);
+          if (pr.city) upd.city = String(pr.city).trim().slice(0, 40);
+          if (pr.kind) upd.kind = String(pr.kind);
+          await sb.from("users").update(upd).eq("tg_id", me.tg_id);
         }
-        const stats = await statsRow(me.tg_id);
-        return json({ me: await one("users", me.tg_id), stats, isOwner });
+        const fresh = await one("users", me.tg_id);
+        const stats = await statsRow(me.tg_id, fresh?.city ?? "", fresh?.kind ?? "team");
+        return json({ me: fresh, stats, isOwner });
+      }
+
+      // ---- игрок меняет своё имя и/или группу (город + классификация) ----
+      case "saveProfile": {
+        const upd: Record<string, unknown> = {};
+        if (payload.displayName !== undefined) {
+          const n = String(payload.displayName || "").trim().slice(0, 40);
+          upd.display_name = n || null;          // пусто → снова показываем имя из Telegram
+        }
+        if (payload.city !== undefined) upd.city = String(payload.city || "").trim().slice(0, 40);
+        if (payload.kind !== undefined) upd.kind = String(payload.kind || "team");
+        if (Object.keys(upd).length) await sb.from("users").update(upd).eq("tg_id", me.tg_id);
+        return json({ me: await one("users", me.tg_id) });
       }
 
       // ---- владелец: создать/обновить игру ----
@@ -169,6 +240,17 @@ Deno.serve(async (req) => {
         return json({ signups: data ?? [] });
       }
       case "signup": {
+        // Жёсткий запрет записи в чужую группу: игра из другого города или
+        // другой классификации недоступна. Проверяем на сервере — клиенту нельзя доверять.
+        const { data: g } = await sb.from("games").select("city, kind").eq("id", payload.gameId).single();
+        if (!g) throw new Error("игра не найдена");
+        const myCity = me.city ?? "", myKind = me.kind ?? "team";
+        if ((g.city ?? "") !== myCity || (g.kind ?? "team") !== myKind) {
+          throw new Error(
+            `Это игра другой группы: ${g.city || "—"} · ${KIND_RU[g.kind] || g.kind}. ` +
+            `Ваша группа: ${myCity || "—"} · ${KIND_RU[myKind] || myKind}. Сменить можно в профиле.`,
+          );
+        }
         await sb.from("signups").upsert({ game_id: payload.gameId, tg_id: me.tg_id }, { onConflict: "game_id,tg_id", ignoreDuplicates: true });
         return json(await signupList(payload.gameId));
       }
@@ -261,23 +343,28 @@ Deno.serve(async (req) => {
         for (const id of ids) { const c = tally[id] || 0; if (c > best) { best = c; mvp = id; } }
         const { data: res } = await sb.from("game_results").insert({ game_id: gameId, win_team: result, mvp_tg_id: mvp }).select().single();
         for (const id of ids) await sb.from("game_roles").insert({ result_id: res.id, tg_id: id, role_key: roles[id].key, team: roles[id].team });
-        // применяем рейтинг
+        // Рейтинг начисляем в ГРУППЕ ИГРЫ (город × классификация), а не «вообще».
+        // Так очки Владивостока не перемешиваются с Москвой и детской мафией.
+        const { data: gRow } = await sb.from("games").select("city, kind").eq("id", gameId).single();
+        const gCity = gRow?.city ?? "", gKind = gRow?.kind ?? "team";
         const mk = monthKey();
         for (const id of ids) {
-          const s = await statsRow(id) ?? { tg_id: id, pts: 0, wins: 0, losses: 0, games: 0, streak: 0, max_streak: 0, wins_mafia: 0, wins_good: 0, wins_third: 0, mvp_total: 0, month_games: 0, month_mvp: 0, stat_month: mk };
+          const s = await statsRow(id, gCity, gKind) ?? { tg_id: id, city: gCity, kind: gKind, pts: 0, wins: 0, losses: 0, games: 0, streak: 0, max_streak: 0, wins_mafia: 0, wins_good: 0, wins_third: 0, mvp_total: 0, month_games: 0, month_mvp: 0, stat_month: mk };
           if (s.stat_month !== mk) { s.stat_month = mk; s.month_games = 0; s.month_mvp = 0; }
           const won = roles[id].team === result;
           s.games++; s.month_games++;
           if (won) { s.wins++; s.pts += RP.win; s.streak++; if (s.streak > s.max_streak) s.max_streak = s.streak; s["wins_" + result]++; if (s.streak % 3 === 0) s.pts += RP.streak3; }
           else { s.losses++; s.streak = 0; }
           if (s.month_games === 5) s.pts += RP.attend5;
-          await sb.from("player_stats").upsert(s, { onConflict: "tg_id" });
+          await sb.from("player_stats").upsert(s, { onConflict: "tg_id,city,kind" });
         }
         if (mvp != null) {
-          const s = await statsRow(mvp);
-          s.pts += RP.mvp; s.mvp_total++; s.month_mvp++;
-          if (s.month_mvp === 3) s.pts += RP.mvp3mo;
-          await sb.from("player_stats").upsert(s, { onConflict: "tg_id" });
+          const s = await statsRow(mvp, gCity, gKind);
+          if (s) {
+            s.pts += RP.mvp; s.mvp_total++; s.month_mvp++;
+            if (s.month_mvp === 3) s.pts += RP.mvp3mo;
+            await sb.from("player_stats").upsert(s, { onConflict: "tg_id,city,kind" });
+          }
           // лучшему игроку — сундук
           const { data: mu } = await sb.from("users").select("chests").eq("tg_id", mvp).single();
           await sb.from("users").update({ chests: (mu?.chests || 0) + 1 }).eq("tg_id", mvp);
