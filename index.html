@@ -2003,6 +2003,14 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       </div>
       <label class="auth-field"><span>Название</span><input type="text" id="efTitle" placeholder="Напр. Лунная ночь"></label>
       <div class="admf-row">
+        <label class="auth-field"><span>Город</span><input type="text" id="efCity" placeholder="Владивосток"></label>
+        <label class="auth-field"><span>Классификация</span><select id="efKind">
+          <option value="team">Сборная мафия</option>
+          <option value="corp">Корпоративная мафия</option>
+          <option value="kids">Детская мафия</option>
+        </select></label>
+      </div>
+      <div class="admf-row">
         <label class="auth-field"><span>Дата</span><input type="date" id="efDate"></label>
         <label class="auth-field"><span>Время</span><input type="time" id="efTime"></label>
       </div>
@@ -2353,7 +2361,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v11 · 21.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v12 · 21.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -3214,6 +3222,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     $('admFormTitle').textContent = key?'Редактирование':'Новое событие';
     setFormType(g&&g.special?'special':'normal');
     $('efTitle').value=g?g.title:''; $('efDate').value=g?ruToISO(g.date):''; $('efTime').value=g?g.time:'';
+    // Группа события: по умолчанию — твоя текущая (обычно ты заводишь игру своего города)
+    $('efCity').value=(g&&g.city)||MYCITY||''; $('efKind').value=(g&&g.kind)||MYKIND||'team';
     $('efPlace').value=g?g.place:''; $('efPrice').value=g?String(g.price||'').replace(/[^\d]/g,''):'';
     $('efStatus').value=g?g.status:'soon';
     const sm=String(g&&g.seats||'').match(/(\d+)\D+(\d+)/);
@@ -3234,6 +3244,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const key=editingKey || ('ev'+Object.keys(GAMES).length+'_'+title.replace(/\s+/g,'').slice(0,6));
     const g=GAMES[key]||{};
     g.title=title; g.special=special||undefined;
+    g.city=$('efCity').value.trim()||MYCITY||''; g.kind=$('efKind').value||'team';   // группа события
     g.date=isoToRu($('efDate').value); g.time=$('efTime').value||'';
     g.place=$('efPlace').value.trim();
     g.price=price?((+price).toLocaleString('ru-RU')+' ₽'):'—';
@@ -3246,7 +3257,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     GAMES[key]=g;
     saveGames();   // локальная копия (на случай без сети/вне Telegram)
     // Сохранить в ОБЩУЮ базу (владелец, через Telegram). Успех → перечитать для всех.
-    const dbGame={ id:key, title, gdate:$('efDate').value||null, gtime:$('efTime').value||'', place:$('efPlace').value.trim(),
+    const dbGame={ id:key, title, city:g.city||null, kind:g.kind||'team',
+      gdate:$('efDate').value||null, gtime:$('efTime').value||'', place:$('efPlace').value.trim(),
       price:+price||0, capacity:+total||24, min_players:10, status,
       format:$('efFormat').value.trim(), level:$('efLevel').value.trim(), descr:$('efDesc').value.trim(),
       img:special?null:(img||null), special:!!special, archived:false };
@@ -3468,6 +3480,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   function mapDbGame(r){
     return {
       id:r.id, title:r.title||'',
+      city: r.city||'', kind: r.kind||'team',        // группа события (город × классификация)
       date: isoToRu(r.gdate) || (r.gdate||''),
       time: r.gtime||'', place:r.place||'',
       price: (+r.price>0) ? ((+r.price).toLocaleString('ru-RU')+' ₽') : '—',
@@ -3497,7 +3510,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const priceN = parseInt(String(g.price||'').replace(/[^\d]/g,''))||0;
     let cap = +g.capacity||0;
     if(!cap){ const m=String(g.seats||'').match(/из\s*(\d+)/); cap = m?+m[1]:24; }
-    return { id:key, title:g.title||'', gdate: ruToISO(g.date)||null, gtime:g.time||'',
+    return { id:key, title:g.title||'', city:g.city||null, kind:g.kind||'team',
+      gdate: ruToISO(g.date)||null, gtime:g.time||'',
       place:g.place||'', price:priceN, capacity:cap||24, min_players:(+g.min_players)||10,
       status:g.status||'soon', format:g.format||'', level:g.level||'', descr:g.desc||'',
       img: g.special?null:(g.img||null), special:!!g.special, archived:false };
