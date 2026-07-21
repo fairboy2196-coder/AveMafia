@@ -685,6 +685,13 @@ body.style-winter .bar i{
   box-shadow:0 0 18px -2px rgba(231,194,123,.6);font-family:"Playfair Display";font-weight:700;
   font-size:18px;color:var(--gold)}
 .pf-name{text-align:center;font-family:"Playfair Display",serif;font-weight:700;font-size:26px;margin:18px 0 4px}
+/* профиль: смена имени и группы (город × классификация) */
+.pf-group{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px}
+.pf-gbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;cursor:pointer;
+  font-size:12px;color:var(--mist);background:rgba(122,71,230,.10);border:1px solid var(--line-2);
+  transition:border-color .18s,color .18s,background .18s}
+.pf-gbtn:hover{color:var(--ghost);border-color:var(--line-gold);background:rgba(122,71,230,.18)}
+.pf-gbtn .svgico{width:13px;height:13px;color:var(--violet)}
 .pf-status{text-align:center;color:var(--mist);font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:8px}
 .pf-status .ln{width:24px;height:1px;background:linear-gradient(90deg,transparent,var(--gold))}
 .pf-status .ln.r{background:linear-gradient(90deg,var(--gold),transparent)}
@@ -856,6 +863,10 @@ body.style-winter .bar i{
 .rk-row .rinfo{flex:1;min-width:0}
 .rk-row .rinfo .rn{font-family:"Playfair Display";font-weight:700;font-size:15px}
 .rk-row .rinfo .rs{font-size:12px;color:var(--mist-2)}
+/* настоящее имя из Telegram — видно ТОЛЬКО владельцу клуба */
+.rk-row .rinfo .rs-real{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;
+  color:var(--gold);opacity:.85}
+.rk-row .rinfo .rs-real .svgico{width:11px;height:11px}
 .rk-row .rpts{font-weight:700;color:var(--gold);font-size:15px;display:flex;align-items:center;gap:5px}
 .rk-row .rpts .svgico{width:13px;height:13px}
 .rk-row.me{border-color:var(--line-2);background:linear-gradient(160deg,rgba(122,71,230,.16),rgba(122,71,230,.05));
@@ -1517,6 +1528,15 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         </div>
         <input type="text" id="rOccOther" class="auth-occ-other" placeholder="Напишите ваш вид деятельности" autocomplete="off" style="display:none;margin-top:10px">
       </div>
+      <label class="auth-field"><span>Город</span><input type="text" id="rCity" placeholder="Например: Владивосток" autocomplete="address-level2" list="cityList">
+        <datalist id="cityList"></datalist></label>
+      <div class="auth-field"><span>Куда играете</span>
+        <div class="auth-chips" id="rKind">
+          <button type="button" class="occ on" data-kind="team">Сборная мафия</button>
+          <button type="button" class="occ" data-kind="corp">Корпоративная</button>
+          <button type="button" class="occ" data-kind="kids">Детская мафия</button>
+        </div>
+      </div>
       <div class="auth-err" id="profErr"></div>
       <button class="btn btn-primary auth-btn" id="authFinish"><svg class="svgico"><use href="#i-check"/></svg>Завершить регистрацию</button>
     </section>
@@ -2171,8 +2191,12 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <div class="pf-portrait" data-asset="warden"><svg><use href="#m-hood"/></svg></div>
       <div class="pf-lvl" id="pf-lvl">1</div>
     </div>
-    <h2 class="pf-name">Ночной Странник</h2>
+    <h2 class="pf-name" id="pfName">Ночной Странник</h2>
     <div class="pf-status"><span class="ln"></span>Член клуба<span class="ln r"></span></div>
+    <div class="pf-group">
+      <button class="pf-gbtn" id="pfEditName"><svg class="svgico"><use href="#i-edit"/></svg>Изменить имя</button>
+      <button class="pf-gbtn" id="pfEditGroup"><svg class="svgico"><use href="#i-pin"/></svg><span id="pfGroupTxt">Группа</span></button>
+    </div>
 
     <!-- ====== profile inner tabs ====== -->
     <div class="pf-tabs" id="pfTabs">
@@ -2329,7 +2353,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v10 · 21.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v11 · 21.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -2383,6 +2407,32 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
 (function(){
   // Сразу вернуть купленный стиль интерфейса (пока показывается сплэш — мигания не видно).
   try{ if(localStorage.getItem('avemafia_style')==='winter') document.body.classList.add('style-winter'); }catch(e){}
+
+  /* ===== ГРУППА ИГРОКА: город × классификация =====
+     Игры и рейтинг — только своей группы. Записаться в чужую нельзя
+     (это проверяет и сервер). Значения задаются при регистрации и
+     меняются в профиле; источник правды — база (users.city/kind). */
+  const KINDS={team:'Сборная мафия',corp:'Корпоративная мафия',kids:'Детская мафия'};
+  let MYCITY='', MYKIND='team';
+  // Имя, выбранное игроком. Пусто → показываем имя из Telegram.
+  // ОРИГИНАЛ из Telegram при этом никуда не девается — его видит владелец клуба.
+  let MYNAME='';
+  try{ const _p=JSON.parse(localStorage.getItem('avemafia_profile')||'null');
+       if(_p){ MYCITY=_p.city||''; MYKIND=_p.kind||'team'; MYNAME=_p.first||''; } }catch(e){}
+  // Фильтр для запросов: пока город не выбран — не фильтруем (иначе пустой экран).
+  function groupFilter(){ return MYCITY ? {city:MYCITY, kind:MYKIND} : {}; }
+  function groupLabel(){ return (MYCITY||'Город не выбран')+' · '+(KINDS[MYKIND]||MYKIND); }
+  function myName(){ try{ return MYNAME || ME.first_name || 'Игрок'; }catch(e){ return MYNAME||'Игрок'; } }
+  function saveProfileLocal(){
+    try{ const p=JSON.parse(localStorage.getItem('avemafia_profile')||'{}');
+         p.city=MYCITY; p.kind=MYKIND; if(MYNAME)p.first=MYNAME;
+         localStorage.setItem('avemafia_profile', JSON.stringify(p)); }catch(e){}
+  }
+  const saveGroupLocal=saveProfileLocal;   // тот же файл профиля
+  function renderGroupUI(){
+    const n=document.getElementById('pfName');     if(n) n.textContent=myName();
+    const g=document.getElementById('pfGroupTxt'); if(g) g.textContent=groupLabel();
+  }
   /* =====================================================================
      ART ASSETS — real images live in /assets. Each slot shows its
      premium placeholder until the matching file loads, then fades the
@@ -3461,7 +3511,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   }
   // Загрузить игры из базы и перерисовать (общий список для всех).
   async function loadGames(){
-    const res = await BACKEND.call('games', {});
+    const res = await BACKEND.call('games', groupFilter());   // только игры своей группы
     if(res && Array.isArray(res.games) && res.games.length){ applyDbGames(res.games); }
   }
   // ---- Регистрация игрока в ОБЩЕЙ базе (по подписи Telegram). Вызывается на старте
@@ -3472,6 +3522,15 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const res = await BACKEND.call('init', prof?{profile:prof}:{});
     if(res && res.isOwner){ document.body.classList.add('is-admin');   // владелец подтверждён сервером
       try{ renderAch(); renderAvatars(); }catch(e){}                   // всё разблокировать для владельца
+    }
+    // Группа игрока (город × классификация) — источник правды база.
+    if(res && res.me){
+      const c=res.me.city||'', k=res.me.kind||'team';
+      if(c!==MYCITY || k!==MYKIND){
+        MYCITY=c; MYKIND=k; saveGroupLocal();
+        loadGames(); loadLeaderboard();      // перечитать под новую группу
+      }
+      try{ renderGroupUI(); }catch(e){}
     }
     // Купленное (аватарки/стили) — источник правды база: их выдаёт вебхук после оплаты.
     if(res && res.me){
@@ -3495,10 +3554,12 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   let RATING_DB=null;   // null = ещё не загружено; массив = данные из базы
   async function loadLeaderboard(){
     if(!BACKEND.enabled) return;
-    const res = await BACKEND.call('leaderboard', {});
+    const res = await BACKEND.call('leaderboard', groupFilter());   // рейтинг своей группы
     if(res && Array.isArray(res.leaderboard)){
       RATING_DB = res.leaderboard.map(function(u){
-        return { id:u.tg_id, avatarId:u.avatar_id||null, s:{ name:u.first_name||'Игрок', pts:u.pts|0, wins:u.wins|0,
+        return { id:u.tg_id, avatarId:u.avatar_id||null,
+                 realName:u.real_name||'', username:u.username||'',   // приходит ТОЛЬКО владельцу
+                 s:{ name:u.first_name||'Игрок', pts:u.pts|0, wins:u.wins|0,
                  losses:u.losses|0, games:u.games|0, mvpTotal:u.mvp|0, winsByTeam:{mafia:0,good:0,third:0} } };
       });
       renderRating();
@@ -3664,6 +3725,11 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       else { reg.occ=b.dataset.occ; if(other){ other.style.display='none'; } }
     });
     $('rOccOther') && $('rOccOther').addEventListener('input',function(){ reg.occ=this.value.trim(); });
+    // классификация: сборная / корпоративная / детская
+    reg.kind='team';
+    $('rKind') && $('rKind').addEventListener('click',function(e){ const b=e.target.closest('[data-kind]'); if(!b)return;
+      reg.kind=b.dataset.kind;
+      $('rKind').querySelectorAll('.occ').forEach(function(o){ o.classList.toggle('on',o===b); }); });
     function finish(mode){
       // Защита: без согласия регистрацию не завершаем (флаг не ставим — окно вернётся).
       if(!consentOK()){ show('welcome'); return; }
@@ -3673,12 +3739,17 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         if(!reg.first){ err.textContent='Укажите имя.'; return; }
         const otherOn=$('rOcc').querySelector('.occ.on')&&$('rOcc').querySelector('.occ.on').dataset.occ==='Другое';
         if(!reg.occ){ err.textContent= otherOn ? 'Напишите ваш вид деятельности.' : 'Выберите вид деятельности.'; return; }
+        reg.city=$('rCity')?$('rCity').value.trim():'';
+        if(!reg.city){ err.textContent='Укажите город — вы будете видеть игры своего города.'; return; }
       }
+      // Группа игрока: город × классификация
+      MYCITY=reg.city||MYCITY; MYKIND=reg.kind||'team'; MYNAME=reg.first||MYNAME;
       // Профиль игрока сохраняем локально…
-      try{ localStorage.setItem('avemafia_profile', JSON.stringify({first:reg.first,last:reg.last,occupation:reg.occ,phone:reg.phone,birthday:reg.birthday,method:reg.method,consent:true})); }catch(e){}
+      try{ localStorage.setItem('avemafia_profile', JSON.stringify({first:reg.first,last:reg.last,occupation:reg.occ,phone:reg.phone,birthday:reg.birthday,method:reg.method,city:MYCITY,kind:MYKIND,consent:true})); }catch(e){}
       try{ localStorage.setItem(STORE,'1'); }catch(e){}
       // …и регистрируем в ОБЩЕЙ базе по подписи Telegram (попадёт в рейтинг-сообщество, виден владельцу).
       try{ backendInit(); }catch(e){}
+      try{ renderGroupUI(); loadGames(); loadLeaderboard(); }catch(e){}   // игры и рейтинг своей группы
       auth.classList.add('done'); auth.setAttribute('aria-hidden','true');
       toast(reg.first ? ('Добро пожаловать, '+reg.first+'!') : 'С возвращением!','i-check');
     }
@@ -4327,6 +4398,59 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     setTxt('pf-losses', s.losses);
     setTxt('pf-lvl', 1+Math.floor(s.games/3));   // уровень: новичок = 1, +1 за каждые 3 игры
   }
+  /* ---------- профиль: смена имени и группы (город × классификация) ---------- */
+  function editMyName(){
+    openModal('<div class="modal-ico violet"><svg><use href="#i-user"/></svg></div>'+
+      '<h3>Ваше имя</h3>'+
+      '<p style="font-size:13px;color:var(--mist);line-height:1.5">Так вас будут видеть другие игроки — в рейтинге и за столом.</p>'+
+      '<input type="text" id="mdName" maxlength="40" value="'+escH(myName())+'" '+
+        'style="width:100%;margin:12px 0;padding:12px 14px;border-radius:12px;background:rgba(10,7,22,.6);'+
+        'border:1px solid var(--line-2);color:var(--ghost);font-size:15px;font-family:inherit">'+
+      '<div class="modal-actions"><button class="btn btn-primary" id="mdNameSave">Сохранить</button>'+
+      '<button class="btn btn-ghost" data-modal-close>Отмена</button></div>');
+    const inp=document.getElementById('mdName'); inp&&inp.focus();
+    const btn=document.getElementById('mdNameSave');
+    btn&&btn.addEventListener('click',async function(){
+      const v=String(inp.value||'').trim().slice(0,40);
+      if(!v){ toast('Имя не может быть пустым','i-info'); return; }
+      MYNAME=v; saveProfileLocal(); renderGroupUI();
+      try{ renderRating(); }catch(e){}
+      closeModal(); toast('Имя обновлено','i-check');
+      await BACKEND.call('saveProfile',{displayName:v});
+      loadLeaderboard();                 // чтобы у всех обновилось
+    });
+  }
+  function editMyGroup(){
+    const chips=Object.keys(KINDS).map(function(k){
+      return '<button type="button" class="occ'+(k===MYKIND?' on':'')+'" data-k="'+k+'">'+escH(KINDS[k])+'</button>';
+    }).join('');
+    openModal('<div class="modal-ico violet"><svg><use href="#i-pin"/></svg></div>'+
+      '<h3>Ваша группа</h3>'+
+      '<p style="font-size:13px;color:var(--mist);line-height:1.5">Вы видите игры и рейтинг только своей группы. '+
+      'Записаться на игру другого города нельзя — если переехали, поменяйте здесь.</p>'+
+      '<input type="text" id="mdCity" maxlength="40" placeholder="Город" value="'+escH(MYCITY)+'" '+
+        'style="width:100%;margin:12px 0 10px;padding:12px 14px;border-radius:12px;background:rgba(10,7,22,.6);'+
+        'border:1px solid var(--line-2);color:var(--ghost);font-size:15px;font-family:inherit">'+
+      '<div class="auth-chips" id="mdKind">'+chips+'</div>'+
+      '<div class="modal-actions" style="margin-top:14px"><button class="btn btn-primary" id="mdGroupSave">Сохранить</button>'+
+      '<button class="btn btn-ghost" data-modal-close>Отмена</button></div>');
+    let pickKind=MYKIND;
+    const kb=document.getElementById('mdKind');
+    kb&&kb.addEventListener('click',function(e){ const b=e.target.closest('[data-k]'); if(!b)return;
+      pickKind=b.dataset.k; kb.querySelectorAll('.occ').forEach(function(o){ o.classList.toggle('on',o===b); }); });
+    const btn=document.getElementById('mdGroupSave');
+    btn&&btn.addEventListener('click',async function(){
+      const c=String(document.getElementById('mdCity').value||'').trim().slice(0,40);
+      if(!c){ toast('Укажите город','i-info'); return; }
+      MYCITY=c; MYKIND=pickKind; saveProfileLocal(); renderGroupUI();
+      closeModal(); toast('Группа: '+groupLabel(),'i-check');
+      await BACKEND.call('saveProfile',{city:MYCITY, kind:MYKIND});
+      loadGames(); loadLeaderboard();    // игры и рейтинг — уже новой группы
+    });
+  }
+  { const a=document.getElementById('pfEditName');  a&&a.addEventListener('click',editMyName);
+    const b=document.getElementById('pfEditGroup'); b&&b.addEventListener('click',editMyGroup); }
+
   // Достижения: полный список + превью в профиле — из живой статистики игрока.
   function renderAch(){ const st=seedMe(); if(achFull)achFull.innerHTML=achHTML(achFilterCur, st); renderAchPreview(st);
     const got=ACH.filter(function(a){return achDone(a,st);}).length;
@@ -4372,7 +4496,14 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   $('favRoles') && $('favRoles').addEventListener('click',function(e){ if(e.target.closest('[data-favpick],[data-fav]')) openRolePicker(); });
 
   // Обновить все «прогресс»-экраны разом (профиль, рейтинг, достижения, аватарки, любимые роли).
-  function refreshProgress(){ renderProfileStats(); renderRating(); renderAch(); renderAvatars(); renderFavRoles(); renderInv(); renderChests(); }
+  function refreshProgress(){ renderProfileStats(); renderRating(); renderAch(); renderAvatars(); renderFavRoles(); renderInv(); renderChests(); try{ renderGroupUI(); }catch(e){} }
+  /* Настоящее имя из Telegram — строкой под ником. Сервер присылает real_name
+     ТОЛЬКО владельцу клуба, поэтому обычные игроки этого не видят в принципе. */
+  function realNameHint(e){
+    if(!e || !e.realName) return '';
+    const uname = e.username ? (' @'+e.username) : '';
+    return '<div class="rs-real"><svg class="svgico"><use href="#i-eye"/></svg>'+escH(e.realName)+escH(uname)+'</div>';
+  }
   function activeAvatar(){ return AVATARS.find(function(x){return x.active;}) || AVATARS[0]; }
   // Портрет для рейтинга. Для «меня» — моя ВЫБРАННАЯ аватарка (как в профиле),
   // для других игроков — их аватарка из базы (если есть), иначе базовый Странник.
@@ -4385,7 +4516,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   }
   function podCell(rankNum, e, cls){
     if(!e) return '<div class="pod '+cls+' empty"></div>';
-    const me=e.id===ME.id, nm=me?ME.first_name:e.s.name, port=ratingPortrait(e);
+    const me=e.id===ME.id, nm=me?myName():e.s.name, port=ratingPortrait(e);
     return '<div class="pod '+cls+'">'+(cls==='first'?'<div class="crown"><svg viewBox="0 0 24 24"><use href="#i-crown"/></svg></div>':'')+
       '<div class="pav" data-asset="'+port.asset+'"><svg><use href="#'+port.art+'"/></svg></div>'+
       '<div class="pn">'+escH(nm)+(me?' <span class="youtag">Вы</span>':'')+'</div>'+
@@ -4417,7 +4548,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       box.innerHTML = totalTag + rest.map(function(e,idx){ const me=e.id===ME.id, s=e.s, port=ratingPortrait(e);
         return '<div class="frame rk-row '+(me?'me':'')+'"><div class="pos">'+(idx+4)+'</div>'+
           '<div class="rav" data-asset="'+port.asset+'"><svg><use href="#'+port.art+'"/></svg></div>'+
-          '<div class="rinfo"><div class="rn">'+escH(me?ME.first_name:s.name)+(me?'<span class="youtag">Вы</span>':'')+'</div><div class="rs">'+winrate(s)+'% побед · '+s.games+' '+plural(s.games,'игра','игры','игр')+'</div></div>'+
+          '<div class="rinfo"><div class="rn">'+escH(me?myName():s.name)+(me?'<span class="youtag">Вы</span>':'')+'</div><div class="rs">'+
+            winrate(s)+'% побед · '+s.games+' '+plural(s.games,'игра','игры','игр')+'</div>'+realNameHint(e)+'</div>'+
           '<div class="rpts"><svg class="svgico"><use href="#i-diamond"/></svg>'+s.pts+'</div></div>';
       }).join('');
       try{hydrateArt(box);}catch(e){}
