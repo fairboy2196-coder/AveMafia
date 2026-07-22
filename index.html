@@ -2365,7 +2365,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v16 · 23.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v17 · 23.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -4250,7 +4250,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const count=players.length;                       // всего записей (стол + резерв)
     const mainCount=Math.min(count,MAXP);              // за столом
     const reserveCount=Math.max(0,count-MAXP);         // в очереди-резерве
-    const confirmed=count>=MINP;                       // «игре быть»
+    // «Игре быть» при наборе минимума. Владельцу — всегда (чтобы тестировать
+    // оплату на любой игре, не дожидаясь набора и не трогая порог).
+    const confirmed=amOwner()||count>=MINP;
     const full=mainCount>=MAXP;
     const myIdx=players.findIndex(p=>p.id===ME.id);
     const inList=myIdx>=0, inReserve=myIdx>=MAXP;
