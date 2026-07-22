@@ -2365,7 +2365,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v17 · 23.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v18 · 23.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -3639,7 +3639,16 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const canPay = TG && typeof TG.openInvoice==='function' && BACKEND.enabled;
     if(!canPay){ openPayModal({title,amount,kind,onSuccess}); return; }
     const res = await BACKEND.call('createInvoice',{kind:kind,id:id,rub:rub,name:title});
-    if(!res || !res.link){ toast(beMsg(res)||'Не удалось создать счёт','i-info'); return; }
+    if(!res || !res.link){
+      // Показываем НАСТОЯЩУЮ ошибку счёта (не прогоняем через beMsg — он ловит «Bad»
+      // в «Bad Request» и подменяет текст). Владельцу видно причину целиком.
+      const err=(res&&res.error)?String(res.error):'Не удалось создать счёт';
+      openModal('<div class="modal-ico bad"><svg><use href="#i-x"/></svg></div>'+
+        '<h3>Счёт не создан</h3>'+
+        '<p style="font-size:12.5px;color:var(--mist);line-height:1.5;word-break:break-word">'+escH(err)+'</p>'+
+        '<div class="modal-actions"><button class="btn btn-primary" data-modal-close>Понятно</button></div>');
+      return;
+    }
     TG.openInvoice(res.link, function(status){
       if(status==='paid'){ toast('Оплата прошла','i-check'); onSuccess&&onSuccess(); }
       else if(status==='failed')    toast('Платёж отклонён','i-x');
