@@ -2031,8 +2031,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         <label class="auth-field"><span>Формат</span><input type="text" id="efFormat" placeholder="классика"></label>
         <label class="auth-field"><span>Уровень</span><input type="text" id="efLevel" placeholder="Уровень: обычная"></label>
       </div>
-      <label class="auth-field" id="efImgWrap"><span>Афиша (арт)</span><select id="efImg">
-        <option value="">— без арта —</option>
+      <label class="auth-field" id="efImgWrap"><span>Афиша (подбирается по названию, можно сменить)</span><select id="efImg">
+        <option value="">— авто по названию —</option>
         <option value="hero">Зал ритуала</option>
         <option value="mask">Маска</option>
         <option value="ev-table">Замок (Теневой стол)</option>
@@ -2365,7 +2365,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v15 · 23.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v16 · 23.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -3220,6 +3220,22 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     $('efTagsWrap').style.display=special?'block':'none';
     $('efImgWrap').style.display=special?'none':'block';
   }
+  // Автоподбор арта по названию: владельцу не надо думать про поле «Афиша».
+  // Порядок важен (сначала более специфичные слова).
+  const ART_BY_KEYWORD=[
+    { rx:/маскарад|маск|masquerade/i,        img:'mask' },
+    { rx:/ворон|raven|птиц|карк/i,           img:'ev-raven' },
+    { rx:/корол|королев|коронац|crown/i,     img:'ev-crown' },
+    { rx:/стол|table|карт/i,                 img:'ev-table' },
+    { rx:/лун|ноч|moon|ритуал|зал|полнолун/i,img:'hero' },
+    { rx:/замок|дворц|тронн|король/i,        img:'ev-crown' },
+  ];
+  function guessArt(title){
+    const t=String(title||'');
+    for(const r of ART_BY_KEYWORD){ if(r.rx.test(t)) return r.img; }
+    return 'hero';   // атмосферный дефолт, если ничего не совпало
+  }
+  let artManual=false;   // владелец вручную выбрал арт → перестаём подставлять авто
   function openEventForm(key){
     editingKey=key||null;
     const g=key?GAMES[key]:null;
@@ -3234,7 +3250,10 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     $('efFree').value=sm?sm[1]:''; $('efTotal').value=sm?sm[2]:'';
     $('efMin').value=(g&&g.min_players)?g.min_players:10;
     $('efFormat').value=g?g.format:''; $('efLevel').value=g?g.level:'Уровень: обычная';
-    $('efImg').value=g&&g.img?g.img:''; $('efTags').value=g&&g.tags?g.tags:''; $('efDesc').value=g?g.desc:'';
+    // Арт: у существующей игры берём её, у новой — авто-подбор по названию.
+    $('efImg').value=(g&&g.img)?g.img:(g?'':guessArt($('efTitle').value));
+    artManual=!!(g&&g.img);   // редактируем игру с явным артом — не перетираем автоподбором
+    $('efTags').value=g&&g.tags?g.tags:''; $('efDesc').value=g?g.desc:'';
     $('efDelete').classList.toggle('hide',!key);
     $('adminList').classList.add('hide'); $('adminForm').classList.remove('hide');
     const v=$('vp'); if(v)v.scrollTop=0;
@@ -3245,7 +3264,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const special=document.querySelector('.admf-t.on').dataset.type==='special';
     const status=$('efStatus').value;
     const free=$('efFree').value.replace(/[^\d]/g,''), total=$('efTotal').value.replace(/[^\d]/g,'');
-    const price=$('efPrice').value.replace(/[^\d]/g,''), img=special?'':$('efImg').value;
+    const price=$('efPrice').value.replace(/[^\d]/g,'');
+    // Арт: что выбрано, иначе автоподбор по названию (владельцу не надо думать о поле).
+    const img=special?'':($('efImg').value||guessArt(title));
     const minP=Math.max(1, parseInt($('efMin').value,10)||10);   // порог оплаты
     const key=editingKey || ('ev'+Object.keys(GAMES).length+'_'+title.replace(/\s+/g,'').slice(0,6));
     const g=GAMES[key]||{};
@@ -3282,6 +3303,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     syncSchedule(); renderAdmin();
   }
   { const b=$('admNew'); if(b) b.addEventListener('click',()=>openEventForm(null)); }
+  // Живой автоподбор арта по мере ввода названия (пока владелец не выбрал вручную).
+  { const t=$('efTitle'); if(t) t.addEventListener('input',function(){ if(!artManual) $('efImg').value=guessArt(t.value); }); }
+  { const s=$('efImg'); if(s) s.addEventListener('change',function(){ artManual=true; }); }
   { const b=$('efCancel'); if(b) b.addEventListener('click',renderAdmin); }
   { const b=$('efSave'); if(b) b.addEventListener('click',saveEvent); }
   { const b=$('efDelete'); if(b) b.addEventListener('click',()=>{ if(editingKey) deleteEvent(editingKey); }); }
