@@ -39,6 +39,28 @@ const TICKET_SECRET = Deno.env.get("TICKET_SECRET") ?? "ave-mafia-secret";
 // Для отладки берётся TEST-токен — деньги не списываются, карты тестовые.
 const PROVIDER_TOKEN = Deno.env.get("PROVIDER_TOKEN") ?? "";
 
+// ---------- Чеки от ЮKassa (54-ФЗ) ----------
+// Система налогообложения поставщика. ИП на УСН «доходы» (6%) = 2.
+// Значения ЮKassa: 1 ОСН · 2 УСН доход · 3 УСН доход−расход · 5 ЕСХН · 6 Патент.
+const TAX_SYSTEM_CODE = Number(Deno.env.get("TAX_SYSTEM_CODE") ?? "2");
+// Ставка НДС в позиции чека. Для УСН товар/услуга — «Без НДС» = 1.
+const VAT_CODE = Number(Deno.env.get("VAT_CODE") ?? "1");
+// Состав чека для одной позиции. Email покупателя Telegram передаёт провайдеру
+// сам (need_email + send_email_to_provider), поэтому customer тут не нужен.
+function buildReceipt(desc: string, rub: number) {
+  return {
+    tax_system_code: TAX_SYSTEM_CODE,
+    items: [{
+      description: desc.slice(0, 128),
+      quantity: "1.00",
+      amount: { value: rub.toFixed(2), currency: "RUB" },
+      vat_code: VAT_CODE,
+      payment_mode: "full_payment",   // полный расчёт
+      payment_subject: "service",     // услуга
+    }],
+  };
+}
+
 // Вызов Telegram Bot API (нужен для выставления счёта).
 async function tgApi(method: string, payload: unknown) {
   const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
@@ -289,7 +311,9 @@ Deno.serve(async (req) => {
           provider_token: PROVIDER_TOKEN,
           currency: "RUB",
           prices: [{ label: title.slice(0, 32), amount: Math.round(amount * 100) }], // в копейках
-          need_email: true, send_email_to_provider: true,   // для чека 54-ФЗ
+          need_email: true, send_email_to_provider: true,   // e-mail для чека уходит в ЮKassa
+          // Состав чека (54-ФЗ, «Чеки от ЮKassa»). Сумма позиции = сумме счёта.
+          provider_data: JSON.stringify({ receipt: buildReceipt(title, amount) }),
         });
         if (!inv?.ok) throw new Error("Telegram: " + (inv?.description || "createInvoiceLink failed"));
         // фиксируем намерение оплаты (статус обновит вебхук)
