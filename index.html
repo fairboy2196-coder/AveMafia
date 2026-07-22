@@ -563,8 +563,7 @@ body.style-winter .bar i{
 .log-row.fake .svgico{color:var(--mafia)} .log-row.fake span{color:#ff9aab}
 
 /* ===== ведущий: проведение игры ===== */
-.host-games{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;scrollbar-width:none}
-.host-games::-webkit-scrollbar{display:none}
+.host-games{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:4px;margin-bottom:14px}
 .host-gbtn{flex:0 0 auto;font:inherit;font-size:12.5px;color:var(--mist);background:rgba(255,255,255,.03);
   border:1px solid var(--line);border-radius:20px;padding:8px 14px;cursor:pointer;white-space:nowrap}
 .host-gbtn.on{color:var(--ghost);border-color:var(--line-gold);background:rgba(231,194,123,.08)}
@@ -2023,6 +2022,8 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
         <label class="auth-field"><span>Свободно мест</span><input type="number" id="efFree" min="0" placeholder="5"></label>
         <label class="auth-field"><span>Всего мест</span><input type="number" id="efTotal" min="0" placeholder="10"></label>
       </div>
+      <label class="auth-field"><span>Мин. игроков для оплаты</span><input type="number" id="efMin" min="1" placeholder="10">
+        <small style="color:var(--mist-2);font-size:11px">Оплата открывается, когда записалось столько человек. Для теста поставь 1.</small></label>
       <div class="admf-row">
         <label class="auth-field"><span>Формат</span><input type="text" id="efFormat" placeholder="классика"></label>
         <label class="auth-field"><span>Уровень</span><input type="text" id="efLevel" placeholder="Уровень: обычная"></label>
@@ -2361,7 +2362,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v12 · 21.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v13 · 23.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -3228,6 +3229,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     $('efStatus').value=g?g.status:'soon';
     const sm=String(g&&g.seats||'').match(/(\d+)\D+(\d+)/);
     $('efFree').value=sm?sm[1]:''; $('efTotal').value=sm?sm[2]:'';
+    $('efMin').value=(g&&g.min_players)?g.min_players:10;
     $('efFormat').value=g?g.format:''; $('efLevel').value=g?g.level:'Уровень: обычная';
     $('efImg').value=g&&g.img?g.img:''; $('efTags').value=g&&g.tags?g.tags:''; $('efDesc').value=g?g.desc:'';
     $('efDelete').classList.toggle('hide',!key);
@@ -3241,6 +3243,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const status=$('efStatus').value;
     const free=$('efFree').value.replace(/[^\d]/g,''), total=$('efTotal').value.replace(/[^\d]/g,'');
     const price=$('efPrice').value.replace(/[^\d]/g,''), img=special?'':$('efImg').value;
+    const minP=Math.max(1, parseInt($('efMin').value,10)||10);   // порог оплаты
     const key=editingKey || ('ev'+Object.keys(GAMES).length+'_'+title.replace(/\s+/g,'').slice(0,6));
     const g=GAMES[key]||{};
     g.title=title; g.special=special||undefined;
@@ -3249,9 +3252,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     g.place=$('efPlace').value.trim();
     g.price=price?((+price).toLocaleString('ru-RU')+' ₽'):'—';
     g.status=status; g.statusTxt=STATUS_TXT[status]||'';
-    g.seats=(free||'0')+' из '+(total||'0'); g.seatsN=+free||0;
+    g.seats=(free||'0')+' из '+(total||'0'); g.seatsN=+free||0; g.min_players=minP;
     g.format=$('efFormat').value.trim(); g.level=$('efLevel').value.trim(); g.desc=$('efDesc').value.trim();
-    g.motif=special?'i-compass':(g.motif||'m-moon');
+    g.motif=special?'i-compass':motifForImg(img);
     if(special){ g.tags=$('efTags').value.trim(); g.img=undefined; g.pos=undefined; }
     else { g.img=img||undefined; g.pos=IMG_POS[img]||undefined; g.tags=undefined; }
     GAMES[key]=g;
@@ -3259,7 +3262,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     // Сохранить в ОБЩУЮ базу (владелец, через Telegram). Успех → перечитать для всех.
     const dbGame={ id:key, title, city:g.city||null, kind:g.kind||'team',
       gdate:$('efDate').value||null, gtime:$('efTime').value||'', place:$('efPlace').value.trim(),
-      price:+price||0, capacity:+total||24, min_players:10, status,
+      price:+price||0, capacity:+total||24, min_players:minP, status,
       format:$('efFormat').value.trim(), level:$('efLevel').value.trim(), descr:$('efDesc').value.trim(),
       img:special?null:(img||null), special:!!special, archived:false };
     BACKEND.call('adminSaveGame',{game:dbGame}).then(r=>{
@@ -3477,6 +3480,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     return Promise.resolve({ok:true});
   }
   // ---- Игры из ОБЩЕЙ базы (Supabase). Строка БД → структура GAMES фронта. ----
+  // Заглушка-постер под арт: чтобы игра без картинки не выглядела «Лунной ночью».
+  const MOTIF_BY_IMG={ hero:'m-moon', mask:'m-mask', 'ev-table':'m-table', 'ev-raven':'m-raven', 'ev-crown':'m-crown' };
+  function motifForImg(img){ return MOTIF_BY_IMG[img] || 'm-mask'; }   // нейтральная по умолчанию — не луна
   function mapDbGame(r){
     return {
       id:r.id, title:r.title||'',
@@ -3489,7 +3495,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       status:r.status||'soon', statusTxt: STATUS_TXT[r.status]||'',
       format:r.format||'', level:r.level||'', desc:r.descr||'',
       img: r.img||undefined, special: !!r.special,
-      motif: r.special?'i-compass':'m-moon',
+      motif: r.special?'i-compass':motifForImg(r.img),
       tags: r.special?(r.descr||''):undefined,
       // РЕАЛЬНЫЕ свободные места = вместимость − записавшиеся (общий счётчик из базы)
       signup_count:r.signup_count||0,
