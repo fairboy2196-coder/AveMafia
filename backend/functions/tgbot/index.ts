@@ -51,20 +51,31 @@ async function ticketSig(code: string, gameId: string) {
 }
 
 // ---------- приветствие /start ----------
+const esc = (s: unknown) =>
+  String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] as string));
+const fmtDay = (iso: string) => {
+  const m = /(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  const MM = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
+  return m ? `${+m[3]} ${MM[+m[2] - 1]}` : "";
+};
 async function sendWelcome(chatId: number) {
-  const { data: games } = await sb.from("games").select("title, price, gdate")
+  const { data: games } = await sb.from("games").select("title, price, gdate, city")
     .eq("archived", false).order("gdate").limit(6);
   const lines = (games ?? []).filter((g: any) => +g.price > 0)
-    .map((g: any) => `• ${g.title} — ${(+g.price).toLocaleString("ru-RU")} ₽`).join("\n");
+    .map((g: any) => `🎭 <b>${esc(g.title)}</b> — ${(+g.price).toLocaleString("ru-RU")} ₽  <i>${fmtDay(g.gdate)}${g.city ? " · " + esc(g.city) : ""}</i>`)
+    .join("\n");
   const text =
-    "🎭 *АвеМафия* — клуб мафиозных игр\n\n" +
-    "Живые игры в мафию для новичков и опытных. Выбирайте игру, записывайтесь и оплачивайте участие прямо в приложении.\n\n" +
-    (lines ? ("*Ближайшие игры:*\n" + lines + "\n\n") : "") +
-    "Нажмите кнопку ниже, чтобы открыть клуб, выбрать игру и оплатить участие.";
+    "🎭 <b>АвеМафия</b> — клуб живых мафиозных игр\n" +
+    "<i>Психология · блеф · интрига при свечах</i>\n\n" +
+    "Выбирайте игру, записывайтесь и оплачивайте участие прямо в приложении. " +
+    "Мы пришлём подтверждение записи и напомним, когда соберётся стол.\n\n" +
+    (lines ? ("🗓 <b>Ближайшие игры</b>\n" + lines + "\n\n") : "") +
+    "Нажмите кнопку ниже — и добро пожаловать за стол. 🕯";
   await tgApi("sendMessage", {
     chat_id: chatId,
     text,
-    parse_mode: "Markdown",
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
     reply_markup: { inline_keyboard: [[{ text: "🎭 Открыть клуб", web_app: { url: APP_URL } }]] },
   });
 }

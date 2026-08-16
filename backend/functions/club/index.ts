@@ -61,7 +61,7 @@ function buildReceipt(desc: string, rub: number) {
   };
 }
 
-// Вызов Telegram Bot API (нужен для выставления счёта).
+// Вызов Telegram Bot API (нужен для выставления счёта и уведомлений).
 async function tgApi(method: string, payload: unknown) {
   const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
     method: "POST",
@@ -69,6 +69,23 @@ async function tgApi(method: string, payload: unknown) {
     body: JSON.stringify(payload),
   });
   return await r.json();
+}
+
+const APP_URL = "https://fairboy2196-coder.github.io/AveMafia/";
+const esc = (s: unknown) =>
+  String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] as string));
+const fmtDate = (iso: string) => {
+  const m = /(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : (iso || "");
+};
+// Личное уведомление игроку. Если он не запускал бота (403) — молча пропускаем.
+async function notify(tgId: number, text: string) {
+  try {
+    await tgApi("sendMessage", {
+      chat_id: tgId, text, parse_mode: "HTML", disable_web_page_preview: true,
+      reply_markup: { inline_keyboard: [[{ text: "🎭 Открыть клуб", web_app: { url: APP_URL } }]] },
+    });
+  } catch (_) { /* игрок не начинал диалог с ботом — пропускаем */ }
 }
 
 const CORS = {
@@ -264,7 +281,8 @@ Deno.serve(async (req) => {
       case "signup": {
         // Жёсткий запрет записи в чужую группу: игра из другого города или
         // другой классификации недоступна. Проверяем на сервере — клиенту нельзя доверять.
-        const { data: g } = await sb.from("games").select("city, kind").eq("id", payload.gameId).single();
+        const { data: g } = await sb.from("games")
+          .select("id, title, city, kind, gdate, gtime, place, min_players").eq("id", payload.gameId).single();
         if (!g) throw new Error("игра не найдена");
         const myCity = me.city ?? "", myKind = me.kind ?? "team";
         if ((g.city ?? "") !== myCity || (g.kind ?? "team") !== myKind) {
@@ -273,8 +291,32 @@ Deno.serve(async (req) => {
             `Ваша группа: ${myCity || "—"} · ${KIND_RU[myKind] || myKind}. Сменить можно в профиле.`,
           );
         }
-        await sb.from("signups").upsert({ game_id: payload.gameId, tg_id: me.tg_id }, { onConflict: "game_id,tg_id", ignoreDuplicates: true });
-        return json(await signupList(payload.gameId));
+        // Был ли игрок уже записан (чтобы не слать уведомление повторно).
+        const { data: existed } = await sb.from("signups").select("tg_id")
+          .eq("game_id", g.id).eq("tg_id", me.tg_id).maybeSingle();
+        await sb.from("signups").upsert({ game_id: g.id, tg_id: me.tg_id }, { onConflict: "game_id,tg_id", ignoreDuplicates: true });
+        const list = await signupList(g.id);
+        const count = (list.signups || []).length;
+        const minP = g.min_players || 10;
+        if (!existed) {
+          const when = `${fmtDate(g.gdate)}${g.gtime ? " · " + g.gtime : ""}`;
+          // 1) Подтверждение записи лично игроку.
+          await notify(me.tg_id,
+            `✅ Вы записаны на <b>${esc(g.title)}</b>\n📅 ${when}${g.place ? "\n📍 " + esc(g.place) : ""}\n\n` +
+            (count >= minP
+              ? "Группа уже набрана — можно закрепить место оплатой в приложении."
+              : `Оплата откроется, когда наберётся группа (${minP} игроков). Мы напомним.`));
+          // 2) Если этой записью только что набрали минимум — оповестить ВСЕХ участников.
+          if (count === minP) {
+            const { data: all } = await sb.from("signups").select("tg_id").eq("game_id", g.id);
+            for (const s of all ?? []) {
+              await notify(s.tg_id,
+                `🎉 <b>${esc(g.title)}</b> — игра состоится!\nГруппа набрана (${minP}). ` +
+                `Откройте приложение и закрепите место оплатой.`);
+            }
+          }
+        }
+        return json(list);
       }
       case "cancelSignup": {
         await sb.from("signups").delete().eq("game_id", payload.gameId).eq("tg_id", me.tg_id);
