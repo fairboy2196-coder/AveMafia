@@ -129,9 +129,10 @@ async function onPaid(msg: any) {
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("ok");
   // Защита webhook: если задан WEBHOOK_SECRET — Telegram должен прислать его в заголовке.
-  if (WEBHOOK_SECRET) {
-    const got = req.headers.get("x-telegram-bot-api-secret-token") || "";
-    if (got !== WEBHOOK_SECRET) return new Response("forbidden", { status: 403 });
+  if (WEBHOOK_SECRET.trim()) {
+    // .trim() — на случай, если в секрет Supabase затесался пробел/перенос строки
+    const got = (req.headers.get("x-telegram-bot-api-secret-token") || "").trim();
+    if (got !== WEBHOOK_SECRET.trim()) return new Response("forbidden", { status: 403 });
   }
   try {
     const u = await req.json();
