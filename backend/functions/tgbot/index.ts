@@ -59,14 +59,16 @@ const fmtDay = (iso: string) => {
   return m ? `${+m[3]} ${MM[+m[2] - 1]}` : "";
 };
 async function sendWelcome(chatId: number) {
+  // Только ПРЕДСТОЯЩИЕ игры (с сегодняшнего дня), прошедшие в приветствие не берём.
+  const today = new Date().toISOString().slice(0, 10);   // YYYY-MM-DD
   const { data: games } = await sb.from("games").select("title, price, gdate, city")
-    .eq("archived", false).order("gdate").limit(6);
+    .eq("archived", false).gte("gdate", today).order("gdate").limit(6);
   const lines = (games ?? []).filter((g: any) => +g.price > 0)
     .map((g: any) => `🎭 <b>${esc(g.title)}</b> — ${(+g.price).toLocaleString("ru-RU")} ₽  <i>${fmtDay(g.gdate)}${g.city ? " · " + esc(g.city) : ""}</i>`)
     .join("\n");
   const text =
-    "🎭 <b>АвеМафия</b> — клуб живых мафиозных игр\n" +
-    "<i>Психология · блеф · интрига при свечах</i>\n\n" +
+    "🎭 <b>АвеМафия</b> — клуб мафиозных игр\n" +
+    "<i>Общение, интрига, азарт</i>\n\n" +
     "Выбирайте игру, записывайтесь и оплачивайте участие прямо в приложении. " +
     "Мы пришлём подтверждение записи и напомним, когда соберётся стол.\n\n" +
     (lines ? ("🗓 <b>Ближайшие игры</b>\n" + lines + "\n\n") : "") +
