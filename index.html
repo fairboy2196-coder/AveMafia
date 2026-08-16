@@ -2365,7 +2365,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v18 · 23.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v19 · 23.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -3806,6 +3806,9 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       // …и регистрируем в ОБЩЕЙ базе по подписи Telegram (попадёт в рейтинг-сообщество, виден владельцу).
       try{ backendInit(); }catch(e){}
       try{ renderGroupUI(); loadGames(); loadLeaderboard(); }catch(e){}   // игры и рейтинг своей группы
+      // Явно просим у Telegram разрешение писать игроку в личку — чтобы
+      // приходили уведомления о записи/игре, даже без команды /start.
+      try{ if(TG && typeof TG.requestWriteAccess==='function') TG.requestWriteAccess(); }catch(e){}
       auth.classList.add('done'); auth.setAttribute('aria-hidden','true');
       toast(reg.first ? ('Добро пожаловать, '+reg.first+'!') : 'С возвращением!','i-check');
     }
