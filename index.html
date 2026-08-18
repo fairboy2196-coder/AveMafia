@@ -684,6 +684,29 @@ body.style-winter .bar i{
   box-shadow:0 0 18px -2px rgba(231,194,123,.6);font-family:"Playfair Display";font-weight:700;
   font-size:18px;color:var(--gold)}
 .pf-name{text-align:center;font-family:"Playfair Display",serif;font-weight:700;font-size:26px;margin:18px 0 4px}
+/* Реклама (объявления партнёров клуба) */
+.ad-search{width:100%;margin-bottom:14px;padding:11px 14px;border-radius:12px;background:rgba(10,7,22,.6);
+  border:1px solid var(--line-2);color:var(--ghost);font-size:14px;font-family:inherit}
+.ad-card{position:relative;padding:14px;margin-bottom:12px;border-radius:15px;
+  background:linear-gradient(160deg,rgba(122,71,230,.10),rgba(10,7,22,.4));border:1px solid var(--line-2)}
+.ad-card .ad-top{display:flex;align-items:flex-start;gap:10px}
+.ad-card .ad-ico{width:40px;height:40px;border-radius:11px;flex:0 0 auto;display:grid;place-items:center;
+  background:linear-gradient(160deg,var(--violet),var(--violet-deep));color:#fff}
+.ad-card .ad-ico .svgico{width:20px;height:20px}
+.ad-card h3{margin:0;font-family:"Playfair Display",serif;font-weight:700;font-size:16px}
+.ad-card .ad-cat{font-size:12px;color:var(--mist)}
+.ad-card .ad-disc{margin-left:auto;flex:0 0 auto;align-self:center;font-weight:800;font-size:13px;color:#1a1206;
+  background:linear-gradient(160deg,var(--gold),var(--gold-2));padding:5px 11px;border-radius:999px;white-space:nowrap}
+.ad-card .ad-desc{margin:10px 0 0;font-size:13px;color:var(--mist);line-height:1.5}
+.ad-card .ad-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.ad-card .ad-actions .btn{flex:1;min-width:120px}
+.ad-status{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:8px}
+.ad-status.pending{color:var(--gold);background:rgba(212,175,90,.14)}
+.ad-status.active{color:var(--good);background:rgba(70,214,162,.14)}
+.ad-status.rejected{color:#ff8080;background:rgba(255,90,90,.12)}
+.ads-mod{margin-bottom:16px}
+.ads-mod .mod-h{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 8px;font-weight:700}
+.ad-empty{text-align:center;color:var(--mist-2);font-size:13px;padding:30px 12px;line-height:1.5}
 /* владелец: база игроков (поиск + карточки) */
 .dir-list{max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin:4px 0 6px;text-align:left}
 .dir-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:11px 13px;border-radius:12px;
@@ -2142,6 +2165,19 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   </section>
 
   <!-- ===================== ROLES ===================== -->
+  <section class="screen" id="ads" data-tab="ads">
+    <div class="topbar">
+      <button class="icon-btn" data-go="home" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
+      <h1>Реклама</h1>
+      <button class="icon-btn" id="adsMine" aria-label="Мои объявления"><svg><use href="#i-user"/></svg></button>
+    </div>
+    <p class="intro">Партнёры клуба — со скидкой для участников. Разместите свою услугу и получайте клиентов прямо из клуба.</p>
+    <button class="btn btn-primary" id="adNew" style="width:100%;justify-content:center;gap:8px;margin-bottom:12px"><svg class="svgico"><use href="#i-plus"/></svg>Разместить рекламу</button>
+    <input id="adSearch" class="ad-search" placeholder="Поиск: услуга, профессия…">
+    <div class="admin-only" id="adsModHost"></div>
+    <div id="adsList"></div>
+  </section>
+
   <section class="screen" id="roles" data-tab="roles">
     <div class="topbar">
       <button class="icon-btn" data-go="home" aria-label="Назад"><svg><use href="#i-back"/></svg></button>
@@ -2340,6 +2376,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
   <nav class="tabbar" id="tabbar">
     <button class="tab on" data-tab="home" data-go="home"><svg><use href="#i-home"/></svg><span>Главная</span></button>
     <button class="tab" data-tab="games" data-go="games"><svg><use href="#i-mask"/></svg><span>Игры</span></button>
+    <button class="tab" data-tab="ads" data-go="ads"><svg><use href="#i-briefcase"/></svg><span>Реклама</span></button>
     <button class="tab" data-tab="roles" data-go="roles"><svg><use href="#i-theater"/></svg><span>Роли</span></button>
     <button class="tab" data-tab="profile" data-go="profile"><svg><use href="#i-user"/></svg><span>Профиль</span></button>
   </nav>
@@ -2377,7 +2414,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v20 · 23.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v21 · 23.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -3071,6 +3108,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       if(id==='admin')renderAdmin();
       if(id==='profile'){ renderProfileStats(); renderAch(); renderAvatars(); }
       if(id==='rating'){ renderRating(); loadLeaderboard(); }   // обновить сообщество из общей базы
+      if(id==='ads')renderAds();                                 // витрина рекламы партнёров
       if(id==='achievements')renderAch();
     }catch(err){ console.warn('[nav] render failed for '+id, err); try{ toast('Сбой экрана «'+id+'»: '+((err&&err.message)||err),'i-info'); }catch(_){} }
   });
@@ -4236,6 +4274,112 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     if(e.target.closest('[data-dir-back]')){ openDirectory(); return; }
   });
   { const b=document.getElementById('drawerDir'); if(b) b.addEventListener('click',openDirectory); }
+
+  /* ================= РЕКЛАМА (объявления партнёров клуба) ================= */
+  let ADS_CACHE=[];
+  const AD_STATUS_RU={pending:'На модерации',active:'Опубликовано',rejected:'Отклонено'};
+  function adContactBtn(c){
+    const v=String(c||'').trim(); if(!v) return '';
+    let href='', label='Связаться';
+    if(v[0]==='@'){ href='https://t.me/'+encodeURIComponent(v.slice(1)); label='Написать'; }
+    else if(/^\+?[\d][\d\s()-]{5,}$/.test(v)){ href='tel:'+v.replace(/[^\d+]/g,''); label='Позвонить'; }
+    else if(/^https?:\/\//i.test(v)){ href=v; label='Открыть сайт'; }
+    else if(/^[\w-]+\.[a-z]{2,}/i.test(v)){ href='https://'+v; label='Открыть сайт'; }
+    if(!href) return '<span class="ad-cat">📞 '+escH(v)+'</span>';
+    return '<a class="btn btn-gold" href="'+escH(href)+'" target="_blank" rel="noopener" style="text-decoration:none"><svg class="svgico"><use href="#i-phone"/></svg>'+label+'</a>';
+  }
+  function adHead(a){
+    return '<div class="ad-top"><div class="ad-ico"><svg class="svgico"><use href="#i-briefcase"/></svg></div>'+
+      '<div style="min-width:0"><h3>'+escH(a.business)+'</h3>'+(a.category?'<div class="ad-cat">'+escH(a.category)+'</div>':'')+'</div>'+
+      (a.discount?'<span class="ad-disc">'+escH(a.discount)+'</span>':'')+'</div>';
+  }
+  function adCardHTML(a){
+    return '<div class="ad-card">'+adHead(a)+
+      (a.description?'<p class="ad-desc">'+escH(a.description)+'</p>':'')+
+      (a.contact?'<div class="ad-actions">'+adContactBtn(a.contact)+'</div>':'')+'</div>';
+  }
+  function adModHTML(a){
+    return '<div class="ad-card">'+adHead(a)+
+      (a.description?'<p class="ad-desc">'+escH(a.description)+'</p>':'')+
+      (a.contact?'<p class="ad-cat" style="margin-top:6px">Контакт: '+escH(a.contact)+'</p>':'')+
+      '<span class="ad-status '+a.status+'">'+(AD_STATUS_RU[a.status]||a.status)+'</span>'+
+      '<div class="ad-actions">'+
+        (a.status!=='active'?'<button class="btn btn-primary" data-ad-ok="'+a.id+'"><svg class="svgico"><use href="#i-check"/></svg>Опубликовать</button>':'')+
+        (a.status!=='rejected'?'<button class="btn btn-ghost" data-ad-no="'+a.id+'"><svg class="svgico"><use href="#i-x"/></svg>Отклонить</button>':'')+
+        '<button class="btn btn-ghost" data-ad-del="'+a.id+'"><svg class="svgico"><use href="#i-trash"/></svg>Удалить</button>'+
+      '</div></div>';
+  }
+  async function renderAds(){
+    const mod=$('adsModHost');
+    if(mod){ mod.innerHTML='';
+      if(amOwner()){
+        const r=await BACKEND.call('adminAds',{status:'pending'});
+        if(r&&Array.isArray(r.ads)&&r.ads.length){
+          mod.innerHTML='<div class="ads-mod"><div class="mod-h">На модерации ('+r.ads.length+')</div>'+r.ads.map(adModHTML).join('')+'</div>';
+        }
+      }
+    }
+    const res=await BACKEND.call('ads', MYCITY?{city:MYCITY}:{});
+    ADS_CACHE=(res&&Array.isArray(res.ads))?res.ads:[];
+    adsRenderList($('adSearch')?$('adSearch').value:'');
+  }
+  function adsRenderList(q){
+    const list=$('adsList'); if(!list)return;
+    q=(q||'').trim().toLowerCase();
+    const arr=!q?ADS_CACHE:ADS_CACHE.filter(function(a){ return [a.business,a.category,a.description].join(' ').toLowerCase().indexOf(q)>=0; });
+    list.innerHTML= arr.length ? arr.map(adCardHTML).join('')
+      : '<div class="ad-empty">Пока нет объявлений'+(q?' по запросу «'+escH(q)+'»':'')+'.<br>Разместите первым — кнопка выше.</div>';
+  }
+  function adField(id,label,ph){ return '<label class="auth-field"><span>'+escH(label)+'</span><input type="text" id="'+id+'" placeholder="'+escH(ph)+'"></label>'; }
+  function adArea(id,label,ph){ return '<label class="auth-field"><span>'+escH(label)+'</span><textarea id="'+id+'" rows="3" placeholder="'+escH(ph)+'"></textarea></label>'; }
+  function openAdForm(){
+    openModal('<div class="modal-ico violet"><svg><use href="#i-briefcase"/></svg></div>'+
+      '<h3>Разместить рекламу</h3>'+
+      '<p style="font-size:12.5px;color:var(--mist);line-height:1.5">Расскажите о своей услуге и дайте скидку участникам клуба. После проверки владельцем объявление появится во вкладке «Реклама».</p>'+
+      '<div style="text-align:left;margin-top:10px">'+
+        adField('adfBiz','Чем занимаетесь / название','напр. Барбершоп «Бритва»')+
+        adField('adfCat','Категория (род деятельности)','напр. барбершоп, финансист, юрист')+
+        adField('adfDisc','Скидка для клуба','напр. 15% или 500 ₽')+
+        adArea('adfDesc','Описание','Коротко про услугу и условия')+
+        adField('adfContact','Контакт','@username, телефон или сайт')+
+      '</div>'+
+      '<div class="modal-actions"><button class="btn btn-primary" id="adfSave">Отправить на модерацию</button>'+
+      '<button class="btn btn-ghost" data-modal-close>Отмена</button></div>');
+    const btn=$('adfSave');
+    btn&&btn.addEventListener('click',async function(){
+      const ad={ business:$('adfBiz').value, category:$('adfCat').value, discount:$('adfDisc').value, description:$('adfDesc').value, contact:$('adfContact').value };
+      if(!String(ad.business).trim()){ toast('Укажите название/чем занимаетесь','i-info'); return; }
+      btn.disabled=true;
+      const r=await BACKEND.call('submitAd',{ad:ad});
+      if(r&&r.ad){ closeModal(); toast('Отправлено на модерацию','i-check'); }
+      else { toast(beMsg(r)||'Не удалось отправить','i-info'); btn.disabled=false; }
+    });
+  }
+  async function openMyAds(){
+    const r=await BACKEND.call('myAds',{});
+    const ads=(r&&Array.isArray(r.ads))?r.ads:[];
+    openModal('<div class="modal-ico violet"><svg><use href="#i-briefcase"/></svg></div>'+
+      '<h3>Мои объявления</h3>'+
+      '<div style="text-align:left;margin:8px 0 12px">'+
+        (ads.length? ads.map(function(a){ return '<div class="ad-card">'+adHead(a)+
+          '<span class="ad-status '+a.status+'">'+(AD_STATUS_RU[a.status]||a.status)+'</span>'+
+          '<div class="ad-actions"><button class="btn btn-ghost" data-ad-del="'+a.id+'"><svg class="svgico"><use href="#i-trash"/></svg>Удалить</button></div></div>'; }).join('')
+          : '<div class="ad-empty">У вас пока нет объявлений.</div>')+
+      '</div>'+
+      '<div class="modal-actions"><button class="btn btn-ghost" data-modal-close>Закрыть</button></div>');
+  }
+  // Клики: модерация владельцем + удаление (работают и в экране, и в модалках).
+  document.addEventListener('click',async function(e){
+    const ok=e.target.closest('[data-ad-ok]'); if(ok){ await BACKEND.call('adminAdStatus',{id:+ok.dataset.adOk,status:'active'}); toast('Опубликовано','i-check'); renderAds(); return; }
+    const no=e.target.closest('[data-ad-no]'); if(no){ await BACKEND.call('adminAdStatus',{id:+no.dataset.adNo,status:'rejected'}); toast('Отклонено','i-x'); renderAds(); return; }
+    const del=e.target.closest('[data-ad-del]'); if(del){ const id=+del.dataset.adDel;
+      const go=(TG&&typeof TG.showConfirm==='function')? new Promise(function(res){ TG.showConfirm('Удалить объявление?',res); }) : Promise.resolve(confirm('Удалить объявление?'));
+      if(!(await go)) return;
+      await BACKEND.call('deleteAd',{id:id}); toast('Удалено','i-x'); closeModal(); renderAds(); return; }
+  });
+  { const b=$('adNew');   if(b) b.addEventListener('click',openAdForm); }
+  { const b=$('adsMine'); if(b) b.addEventListener('click',openMyAds); }
+  { const s=$('adSearch');if(s) s.addEventListener('input',function(){ adsRenderList(this.value); }); }
 
   /* =====================================================================
      ЗАПИСЬ НА ИГРУ · ОПЛАТА · БИЛЕТ С QR · СКАНЕР (симуляция, без сервера)

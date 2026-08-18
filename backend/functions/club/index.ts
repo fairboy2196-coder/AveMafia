@@ -303,6 +303,78 @@ Deno.serve(async (req) => {
         return json({ players });
       }
 
+      // ================= РЕКЛАМА (объявления игроков) =================
+      // Игрок размещает бизнес/услугу со скидкой для клуба; владелец модерирует.
+      case "ads": {
+        // Публичная витрина — только одобренные (active). Опционально по городу.
+        let q = sb.from("ads").select("id, tg_id, business, category, discount, description, contact, city, created_at")
+          .eq("status", "active").order("created_at", { ascending: false }).limit(200);
+        if (payload?.city) q = q.eq("city", payload.city);
+        const { data } = await q;
+        return json({ ads: data ?? [] });
+      }
+      case "myAds": {
+        const { data } = await sb.from("ads").select("*").eq("tg_id", me.tg_id).order("created_at", { ascending: false });
+        return json({ ads: data ?? [] });
+      }
+      case "submitAd": {
+        const a = payload.ad || {};
+        const business = String(a.business || "").trim().slice(0, 80);
+        if (!business) throw new Error("Укажите название/чем занимаетесь");
+        const { data } = await sb.from("ads").insert({
+          tg_id: me.tg_id,
+          business,
+          category: String(a.category || "").trim().slice(0, 60) || null,
+          discount: String(a.discount || "").trim().slice(0, 40) || null,
+          description: String(a.description || "").trim().slice(0, 600) || null,
+          contact: String(a.contact || "").trim().slice(0, 120) || null,
+          city: me.city || null,
+          status: "pending",
+        }).select().single();
+        // уведомим владельца о новой заявке
+        try {
+          const { data: owners } = await sb.from("users").select("tg_id").eq("is_owner", true);
+          for (const o of owners ?? []) {
+            await notify(o.tg_id, `🆕 Новая заявка на рекламу: <b>${esc(business)}</b>\nОткройте «Реклама» → на модерацию.`);
+          }
+        } catch (_) { /* не критично */ }
+        return json({ ad: data });
+      }
+      // ---- владелец: модерация рекламы ----
+      case "adminAds": {
+        requireOwner();
+        let q = sb.from("ads").select("*").order("created_at", { ascending: false }).limit(500);
+        if (payload?.status) q = q.eq("status", payload.status);
+        const { data } = await q;
+        return json({ ads: data ?? [] });
+      }
+      case "adminAdStatus": {
+        requireOwner();
+        const upd: Record<string, unknown> = {};
+        if (payload.status) upd.status = String(payload.status);      // active | rejected | pending
+        if (payload.price !== undefined) upd.price = +payload.price || 0;
+        if (payload.paid !== undefined) upd.paid = !!payload.paid;
+        await sb.from("ads").update(upd).eq("id", payload.id);
+        // сообщим автору о решении
+        try {
+          const { data: ad } = await sb.from("ads").select("tg_id, business, status").eq("id", payload.id).single();
+          if (ad && payload.status === "active") {
+            await notify(ad.tg_id, `✅ Ваше объявление «${esc(ad.business)}» опубликовано в клубе.`);
+          } else if (ad && payload.status === "rejected") {
+            await notify(ad.tg_id, `❌ Объявление «${esc(ad.business)}» отклонено. Можно поправить и подать снова.`);
+          }
+        } catch (_) { /* не критично */ }
+        return json({ ok: true });
+      }
+      case "deleteAd": {
+        // автор может удалить своё; владелец — любое
+        const { data: ad } = await sb.from("ads").select("tg_id").eq("id", payload.id).single();
+        if (!ad) throw new Error("объявление не найдено");
+        if (ad.tg_id !== me.tg_id && !isOwner) throw new Error("нет прав");
+        await sb.from("ads").delete().eq("id", payload.id);
+        return json({ ok: true });
+      }
+
       // ---- записи на игру ----
       case "signups": {
         const { data } = await sb.from("signups")
