@@ -684,6 +684,17 @@ body.style-winter .bar i{
   box-shadow:0 0 18px -2px rgba(231,194,123,.6);font-family:"Playfair Display";font-weight:700;
   font-size:18px;color:var(--gold)}
 .pf-name{text-align:center;font-family:"Playfair Display",serif;font-weight:700;font-size:26px;margin:18px 0 4px}
+/* владелец: база игроков (поиск + карточки) */
+.dir-list{max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin:4px 0 6px;text-align:left}
+.dir-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:11px 13px;border-radius:12px;
+  cursor:pointer;background:rgba(122,71,230,.08);border:1px solid var(--line-2);transition:border-color .15s,background .15s}
+.dir-item:hover{border-color:var(--line-gold);background:rgba(122,71,230,.16)}
+.dir-item .di-nm{font-family:"Playfair Display",serif;font-weight:700;font-size:14.5px;color:var(--ghost)}
+.dir-item .di-sub{font-size:12px;color:var(--mist)}
+.dir-row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.dir-row:last-child{border-bottom:none}
+.dir-row .dl{font-size:12.5px;color:var(--mist-2);flex:0 0 auto}
+.dir-row .dv{font-size:13px;color:var(--ghost);text-align:right;word-break:break-word}
 /* профиль: смена имени и группы (город × классификация) */
 .pf-group{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px}
 .pf-gbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;cursor:pointer;
@@ -2355,6 +2366,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <div class="drawer-sep-l org-only">Для организатора</div>
       <button class="drawer-item org-only" data-go="scanner"><svg class="svgico"><use href="#i-diamond-o"/></svg>Сканер билетов<svg class="svgico chev"><use href="#i-chev"/></svg></button>
       <button class="drawer-item org-only" data-go="host"><svg class="svgico"><use href="#i-theater"/></svg>Проведение игры<svg class="svgico chev"><use href="#i-chev"/></svg></button>
+      <button class="drawer-item org-only" id="drawerDir"><svg class="svgico"><use href="#i-users"/></svg>База игроков<svg class="svgico chev"><use href="#i-chev"/></svg></button>
     </nav>
     <div class="sheet-foot">АвеМафия · Telegram Mini App</div>
   </aside>
@@ -2365,7 +2377,7 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
       <button class="icon-btn" data-sheet-close aria-label="Закрыть"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="notif-list" id="notifList"><!-- injected by JS --></div>
-    <div class="sheet-foot" id="buildTag">сборка v19 · 23.07</div>
+    <div class="sheet-foot" id="buildTag">сборка v20 · 23.07</div>
   </aside>
 
   <!-- ===================== MODAL (payment / reward / purchase) ===================== -->
@@ -4161,6 +4173,69 @@ body.is-admin .drawer-sep-l.org-only{display:block !important}
     const it=e.target.closest('[data-info]'); if(!it)return;
     openInfo(it.dataset.info);
   });
+
+  /* ---------- ВЛАДЕЛЕЦ: база игроков с поиском ----------
+     Полные карточки (имя, @username, род деятельности, город, группа,
+     телефон, ДР). Поиск фильтрует по всем этим полям. */
+  let DIR_PLAYERS=[];
+  function dirCard(p){
+    const rows=[
+      ['Имя в клубе', p.name],
+      ['Настоящее имя', p.real_name||'—'],
+      ['Telegram', p.username?('@'+p.username):'—'],
+      ['Род деятельности', p.occupation||'—'],
+      ['Город', p.city||'—'],
+      ['Группа', KINDS[p.kind]||p.kind],
+      ['Телефон', p.phone||'—'],
+      ['День рождения', p.birthday?isoToRu(p.birthday):'—'],
+      ['Игр сыграно', String(p.games||0)],
+      ['Побед', String(p.wins||0)],
+    ];
+    return '<div class="modal-ico violet"><svg><use href="#i-user"/></svg></div>'+
+      '<h3 style="margin-bottom:2px">'+escH(p.name)+'</h3>'+
+      '<div style="text-align:left;margin:10px 2px 14px">'+
+        rows.map(function(r){ return '<div class="dir-row"><span class="dl">'+escH(r[0])+'</span><span class="dv">'+escH(r[1])+'</span></div>'; }).join('')+
+      '</div>'+
+      (p.phone?'<a class="btn btn-ghost" href="tel:'+encodeURIComponent(p.phone)+'" style="text-decoration:none"><svg class="svgico"><use href="#i-pin"/></svg>Позвонить</a>':'')+
+      (p.username?'<a class="btn btn-ghost" href="https://t.me/'+encodeURIComponent(p.username)+'" target="_blank" style="text-decoration:none"><svg class="svgico"><use href="#i-user"/></svg>Написать в Telegram</a>':'')+
+      '<div class="modal-actions"><button class="btn btn-primary" data-dir-back>← К списку</button></div>';
+  }
+  function dirRenderList(q){
+    const box=document.getElementById('dirList'); if(!box)return;
+    q=(q||'').trim().toLowerCase();
+    const list=!q?DIR_PLAYERS:DIR_PLAYERS.filter(function(p){
+      return [p.name,p.real_name,p.username,p.occupation,p.city,KINDS[p.kind]].join(' ').toLowerCase().indexOf(q)>=0;
+    });
+    const cnt=document.getElementById('dirCount'); if(cnt)cnt.textContent=' ('+list.length+')';
+    box.innerHTML = list.length ? list.map(function(p,i){
+      const gi=DIR_PLAYERS.indexOf(p);
+      return '<button class="dir-item" data-dir-open="'+gi+'">'+
+        '<span class="di-nm">'+escH(p.name)+'</span>'+
+        '<span class="di-sub">'+escH([p.occupation, p.city].filter(Boolean).join(' · ')||'—')+'</span>'+
+      '</button>';
+    }).join('') : '<div style="text-align:center;color:var(--mist-2);padding:24px 8px;font-size:13px">Никого не найдено.</div>';
+  }
+  async function openDirectory(){
+    closeSheet();
+    openModal('<div class="modal-ico violet"><svg><use href="#i-users"/></svg></div>'+
+      '<h3>База игроков<span id="dirCount"></span></h3>'+
+      '<input id="dirSearch" placeholder="Поиск: имя, профессия, город…" '+
+        'style="width:100%;margin:10px 0;padding:11px 13px;border-radius:12px;background:rgba(10,7,22,.6);'+
+        'border:1px solid var(--line-2);color:var(--ghost);font-size:14px;font-family:inherit">'+
+      '<div id="dirList" class="dir-list"><div style="text-align:center;color:var(--mist-2);padding:24px 8px">Загрузка…</div></div>'+
+      '<div class="modal-actions"><button class="btn btn-ghost" data-modal-close>Закрыть</button></div>');
+    const inp=document.getElementById('dirSearch');
+    inp&&inp.addEventListener('input',function(){ dirRenderList(this.value); });
+    const res=await BACKEND.call('directory',{});
+    if(res&&Array.isArray(res.players)){ DIR_PLAYERS=res.players; dirRenderList(inp?inp.value:''); }
+    else { const box=document.getElementById('dirList'); if(box)box.innerHTML='<div style="text-align:center;color:var(--mist-2);padding:24px 8px;font-size:13px">'+escH(ownerSaveErr(res)||'Не удалось загрузить базу')+'</div>'; }
+  }
+  // Клики внутри модалки базы: открыть карточку / вернуться к списку.
+  modal && modal.addEventListener('click',function(e){
+    const op=e.target.closest('[data-dir-open]'); if(op){ const p=DIR_PLAYERS[+op.dataset.dirOpen]; if(p)openModal(dirCard(p)); return; }
+    if(e.target.closest('[data-dir-back]')){ openDirectory(); return; }
+  });
+  { const b=document.getElementById('drawerDir'); if(b) b.addEventListener('click',openDirectory); }
 
   /* =====================================================================
      ЗАПИСЬ НА ИГРУ · ОПЛАТА · БИЛЕТ С QR · СКАНЕР (симуляция, без сервера)

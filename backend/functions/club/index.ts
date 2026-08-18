@@ -271,6 +271,38 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      // ---- ВЛАДЕЛЕЦ: база игроков (полные карточки + поиск) ----
+      // Все персональные данные (настоящее имя, @username, род деятельности,
+      // телефон, ДР) отдаём ТОЛЬКО владельцу клуба.
+      case "directory": {
+        requireOwner();
+        const { data } = await sb.from("users")
+          .select("tg_id, first_name, last_name, username, display_name, occupation, city, kind, phone, birthday, created_at")
+          .order("created_at", { ascending: false }).limit(2000);
+        // прицепим сыгранные игры (сумма по всем группам) — полезно в карточке
+        const { data: st } = await sb.from("player_stats").select("tg_id, games, wins, pts");
+        const agg: Record<number, { games: number; wins: number; pts: number }> = {};
+        (st ?? []).forEach((s: any) => {
+          const a = agg[s.tg_id] || (agg[s.tg_id] = { games: 0, wins: 0, pts: 0 });
+          a.games += s.games || 0; a.wins += s.wins || 0; a.pts += s.pts || 0;
+        });
+        const players = (data ?? []).map((u: any) => ({
+          tg_id: u.tg_id,
+          name: u.display_name || u.first_name || "Игрок",
+          real_name: [u.first_name, u.last_name].filter(Boolean).join(" "),
+          username: u.username || null,
+          occupation: u.occupation || null,
+          city: u.city || null,
+          kind: u.kind || "team",
+          phone: u.phone || null,
+          birthday: u.birthday || null,
+          games: agg[u.tg_id]?.games || 0,
+          wins: agg[u.tg_id]?.wins || 0,
+          pts: agg[u.tg_id]?.pts || 0,
+        }));
+        return json({ players });
+      }
+
       // ---- записи на игру ----
       case "signups": {
         const { data } = await sb.from("signups")
